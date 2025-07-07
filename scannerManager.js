@@ -1,4 +1,4 @@
-class ScannerManager {
+export default class ScannerManager {
     constructor() {
         this.scanners = new Map();
     }
@@ -14,4 +14,3 @@ class ScannerManager {
     }
 }
 
-module.exports = ScannerManager;

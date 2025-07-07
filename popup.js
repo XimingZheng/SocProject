@@ -1,67 +1,118 @@
-document.addEventListener('DOMContentLoaded', initPopup);
+// popup.js
 
 let currentMode = 'user';
 let scanResults = null;
 let currentTab = null;
 
-async function initPopup() {
-    try {
-        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-        currentTab = tab;
-        document.getElementById('currentUrl').textContent = tab.url;
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+    initializePopup();
+    setupEventListeners();
+});
 
-        setupEventListeners();
+// 初始化弹窗
+async function initializePopup() {
+    try {
+        // 获取当前活动标签页
+        const tabs = await chrome.tabs.query({active: true, currentWindow: true});
+        currentTab = tabs[0];
+
+        // 显示当前URL
+        document.getElementById('currentUrl').textContent = currentTab.url;
+
+        // 开始扫描
         await performScan();
     } catch (error) {
         showError('初始化失败: ' + error.message);
     }
 }
 
+// 设置事件监听器
 function setupEventListeners() {
+    // 模式切换
     document.getElementById('userModeBtn').addEventListener('click', () => switchMode('user'));
     document.getElementById('developerModeBtn').addEventListener('click', () => switchMode('developer'));
+
+    // 用户模式按钮
     document.getElementById('explainBtn').addEventListener('click', toggleExplanation);
     document.getElementById('refreshBtn').addEventListener('click', performScan);
+
+    // 开发者模式按钮
     document.getElementById('devRefreshBtn').addEventListener('click', performScan);
     document.getElementById('exportBtn').addEventListener('click', exportReport);
 
-    // 折叠区域事件
-    document.querySelectorAll('.toggle-header').forEach(header => {
-        const sectionId = header.id.replace('toggle-', '');
-        header.addEventListener('click', () => toggleSection(sectionId));
-    });
+    // 折叠区域切换
+    document.getElementById('toggleOverview').addEventListener('click', () => toggleSection('overview'));
+    document.getElementById('toggleIssues').addEventListener('click', () => toggleSection('issues'));
+    document.getElementById('toggleHeaders').addEventListener('click', () => toggleSection('headers'));
 }
 
+// 切换模式
+function switchMode(mode) {
+    currentMode = mode;
+
+    // 更新按钮状态
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(mode + 'ModeBtn').classList.add('active');
+
+    // 切换界面
+    if (mode === 'user') {
+        document.getElementById('userMode').style.display = 'block';
+        document.getElementById('developerMode').style.display = 'none';
+    } else {
+        document.getElementById('userMode').style.display = 'none';
+        document.getElementById('developerMode').style.display = 'block';
+    }
+
+    // 如果已有扫描结果，更新界面
+    if (scanResults) {
+        updateUserInterface(scanResults);
+    }
+}
+
+// 执行扫描
 async function performScan() {
     showLoading();
 
     try {
-        const results = await getScanResults();
-        scanResults = results;
-        updateUI(results);
+        // 从后台获取扫描结果
+        const results = await getScanResultsFromBackground();
+
+        if (results) {
+            scanResults = results;
+            updateUserInterface(results);
+        } else {
+            showError('无法获取扫描结果');
+        }
+
         hideLoading();
     } catch (error) {
         showError('扫描失败: ' + error.message);
     }
 }
 
-async function getScanResults() {
-    return new Promise((resolve) => {
+// 从后台获取扫描结果
+async function getScanResultsFromBackground() {
+    return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(
-            {action: 'getSecurityState', tabId: currentTab.id},
+            { action: 'getSecurityState', tabId: currentTab.id },
             (response) => {
-                if (response) {
-                    resolve(response.scanResult);
+                if (chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
                 } else {
-                    throw new Error('无法获取扫描结果');
+                    resolve(response);
                 }
             }
         );
     });
 }
 
-function updateUI(results) {
+// 更新用户界面
+function updateUserInterface(results) {
+    // 更新用户模式界面
     updateUserMode(results);
+
+    // 更新开发者模式界面
     updateDeveloperMode(results);
 }
 
@@ -128,10 +179,10 @@ function updateDeveloperMode(results) {
             const issueElement = document.createElement('div');
             issueElement.className = `issue-item ${issue.riskLevel}`;
             issueElement.innerHTML = `
-        <div class="issue-title">${issue.header}: ${issue.title}</div>
-        <div class="issue-description">${issue.description}</div>
-        <div class="issue-fix"><strong>修复建议:</strong> ${issue.fixSuggestion}</div>
-      `;
+                <div class="issue-title">${issue.header}: ${issue.title}</div>
+                <div class="issue-description">${issue.description}</div>
+                <div class="issue-fix"><strong>修复建议:</strong> ${issue.fixSuggestion}</div>
+            `;
             issuesList.appendChild(issueElement);
         });
     }
@@ -144,9 +195,9 @@ function updateDeveloperMode(results) {
         const headerElement = document.createElement('div');
         headerElement.className = 'header-item';
         headerElement.innerHTML = `
-      <div class="header-name">${name}:</div>
-      <div class="header-value">${value}</div>
-    `;
+            <div class="header-name">${name}:</div>
+            <div class="header-value">${value}</div>
+        `;
         headersList.appendChild(headerElement);
     });
 }
@@ -177,10 +228,10 @@ function showError(message) {
     document.getElementById('developerMode').style.display = 'none';
     document.getElementById('errorState').style.display = 'block';
     document.getElementById('errorState').innerHTML = `
-    <div class="icon">⚠️</div>
-    <div>检测失败</div>
-    <div style="font-size: 12px; margin-top: 8px;">${message}</div>
-  `;
+        <div class="icon">⚠️</div>
+        <div>检测失败</div>
+        <div style="font-size: 12px; margin-top: 8px;">${message}</div>
+    `;
 }
 
 // 切换解释内容

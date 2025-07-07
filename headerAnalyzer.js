@@ -1,4 +1,4 @@
-class HeaderAnalyzer {
+export default class HeaderAnalyzer {
     constructor() {
         this.securityHeaders = {
             'x-content-type-options': {
@@ -250,4 +250,3 @@ class HeaderAnalyzer {
         return summary;
     }
 }
-module.exports = HeaderAnalyzer;

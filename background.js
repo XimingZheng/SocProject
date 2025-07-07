@@ -1,6 +1,5 @@
-// 引入必要的模块（不使用ES6导入）
-const HeaderAnalyzer = require('./headerAnalyzer');
-const ScannerManager = require('./scannerManager');
+import HeaderAnalyzer from './headerAnalyzer.js';
+import ScannerManager from './scannerManager.js';
 
 const scannerManager = new ScannerManager();
 scannerManager.register('headers', new HeaderAnalyzer());
