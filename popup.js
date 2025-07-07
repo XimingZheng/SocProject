@@ -72,6 +72,9 @@ function switchMode(mode) {
 
 // 执行扫描
 async function performScan() {
+    await chrome.tabs.reload(currentTab.id);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
     showLoading();
 
     try {

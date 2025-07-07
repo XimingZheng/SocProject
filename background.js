@@ -31,14 +31,7 @@ chrome.webRequest.onHeadersReceived.addListener(
 
             updateIcon(details.tabId, scanResult.riskLevel);
 
-            chrome.tabs.sendMessage(details.tabId, {
-                action: 'securityScanResult',
-                result: scanResult
-            },() => {
-                if (chrome.runtime.lastError) {
-                    console.error('Error sending message to tab:', chrome.runtime.lastError);
-                }
-            });
+           
 
         } catch (error) {
             console.error('Background error:', error);
@@ -47,6 +40,35 @@ chrome.webRequest.onHeadersReceived.addListener(
     { urls: ['<all_urls>'] },
     ['responseHeaders']
 );
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    // content.js 告诉我们它准备好了
+    if (request.action === 'contentScriptReady' && sender.tab?.id != null) {
+        const tabId = sender.tab.id;
+        const state = tabSecurityStates.get(tabId);
+
+        if (state) {
+            console.log('[HeaderSense] content script ready, sending scanResult to tab:', tabId);
+            chrome.tabs.sendMessage(tabId, {
+                action: 'securityScanResult',
+                result: state.scanResult
+            }, () => {
+                if (chrome.runtime.lastError) {
+                    console.warn('Send to content.js failed:', chrome.runtime.lastError.message);
+                }
+            });
+        } else {
+            console.log('[HeaderSense] content script ready, but no scanResult for tab', tabId);
+        }
+    }
+
+    // popup.js 请求当前标签页的 scan state
+    if (request.action === 'getSecurityState') {
+        const state = tabSecurityStates.get(request.tabId) || null;
+        console.log('getSecurityState:', request.tabId, state);
+        sendResponse(state);
+        return true;
+    }
+});
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (changeInfo.status === 'loading') {
