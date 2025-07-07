@@ -839,11 +839,6 @@ body {
     margin-left: 8px;
 }
 
-.scan-mode-indicator.local {
-    background: #e3f2fd;
-    color: #1976d2;
-}
-
 .scan-mode-indicator.backend {
     background: #f3e5f5;
     color: #7b1fa2;
@@ -852,4 +847,19 @@ body {
 .scan-mode-indicator.hybrid {
     background: #e8f5e8;
     color: #388e3c;
+}
+
+/* 模式描述样式 */
+.mode-description {
+    background: #e3f2fd;
+    border: 1px solid #90caf9;
+    padding: 10px;
+    border-radius: 6px;
+    margin: 15px 0;
+    font-size: 12px;
+}
+
+.description-item {
+    color: #1976d2;
+    text-align: center;
 }

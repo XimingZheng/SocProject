@@ -4,17 +4,15 @@ let currentMode = 'user';
 let scanResults = null;
 let currentTab = null;
 let backendStatus = null;
-let currentScanMode = 'hybrid';
+let currentScanMode = 'backend'; // 默认使用后端模式
 
 // 扫描模式配置
 const SCAN_MODES = {
-    LOCAL: 'local',      // 本地扫描
-    BACKEND: 'backend',  // 后端扫描
+    BACKEND: 'backend',  // 后端扫描（优先模式）
     HYBRID: 'hybrid'     // 混合模式
 };
 
 const SCAN_MODE_LABELS = {
-    'local': '🔧 本地扫描',
     'backend': '☁️ 后端扫描',
     'hybrid': '⚡ 智能模式'
 };
@@ -142,21 +140,12 @@ function createScanModeContent() {
     const content = document.createElement('div');
     content.innerHTML = `
         <div class="scan-mode-options">
-            <div class="mode-option ${currentScanMode === 'local' ? 'selected' : ''}" data-mode="local">
-                <div class="mode-icon">🔧</div>
-                <div class="mode-info">
-                    <h4>本地扫描</h4>
-                    <p>仅检查HTTP响应头，速度快，无需网络</p>
-                    <div class="mode-pros">✓ 速度快 ✓ 隐私保护</div>
-                </div>
-            </div>
-            
             <div class="mode-option ${currentScanMode === 'backend' ? 'selected' : ''}" data-mode="backend" ${!backendStatus?.isHealthy ? 'disabled' : ''}>
                 <div class="mode-icon">☁️</div>
                 <div class="mode-info">
-                    <h4>后端扫描</h4>
-                    <p>全面安全检测，包括XSS、SQL注入等</p>
-                    <div class="mode-pros">✓ 功能完整 ✓ 检测深度高</div>
+                    <h4>后端扫描 (推荐)</h4>
+                    <p>全面安全检测，包括XSS、SQL注入、SSL等</p>
+                    <div class="mode-pros">✓ 功能完整 ✓ 检测深度高 ✓ 实时更新</div>
                     ${!backendStatus?.isHealthy ? '<div class="mode-warning">⚠️ 后端服务不可用</div>' : ''}
                 </div>
             </div>
@@ -164,10 +153,16 @@ function createScanModeContent() {
             <div class="mode-option ${currentScanMode === 'hybrid' ? 'selected' : ''}" data-mode="hybrid">
                 <div class="mode-icon">⚡</div>
                 <div class="mode-info">
-                    <h4>智能模式 (推荐)</h4>
+                    <h4>智能模式</h4>
                     <p>快速本地扫描 + 详细后端分析</p>
                     <div class="mode-pros">✓ 兼顾速度与全面性 ✓ 自动回退</div>
                 </div>
+            </div>
+        </div>
+        
+        <div class="mode-description">
+            <div class="description-item">
+                <strong>推荐使用后端扫描模式</strong>以获得最全面的安全检测
             </div>
         </div>
         
@@ -523,11 +518,13 @@ function updateModeSpecificButtons(results) {
         </button>
     `;
 
-    // 详细扫描按钮（当前为本地或快速扫描时）
-    if (results.scanMode !== 'backend' && backendStatus?.isHealthy) {
+    // 详细扫描按钮（当前为智能模式且后端可用时，或后端离线时提供重试）
+    if ((results.scanMode === 'hybrid' && backendStatus?.isHealthy) || 
+        (!backendStatus?.isHealthy && currentScanMode === 'backend')) {
+        const buttonText = !backendStatus?.isHealthy ? '🔄 重试后端' : '🔍 详细扫描';
         buttonsHTML += `
             <button class="btn btn-primary" id="detailedScanBtn">
-                🔍 详细扫描
+                ${buttonText}
             </button>
         `;
     }

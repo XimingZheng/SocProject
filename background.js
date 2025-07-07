@@ -14,13 +14,12 @@ const API_ENDPOINTS = {
 
 // 扫描模式配置
 const SCAN_MODES = {
-    LOCAL: 'local',      // 本地扫描（原有方式）
-    BACKEND: 'backend',  // 后端扫描（新增方式）
-    HYBRID: 'hybrid'     // 混合模式（快速本地+详细后端）
+    BACKEND: 'backend',  // 后端扫描（优先模式）
+    HYBRID: 'hybrid'     // 混合模式（本地+后端）
 };
 
-// 当前扫描模式（可以通过popup设置）
-let currentScanMode = SCAN_MODES.HYBRID;
+// 当前扫描模式（优先使用后端）
+let currentScanMode = SCAN_MODES.BACKEND;
 
 // 本地扫描器管理器
 const scannerManager = new ScannerManager();
@@ -66,10 +65,6 @@ async function performSecurityScan(tabId, url, headers) {
         let scanResult;
 
         switch (currentScanMode) {
-            case SCAN_MODES.LOCAL:
-                scanResult = await performLocalScan(headers);
-                break;
-            
             case SCAN_MODES.BACKEND:
                 scanResult = await performBackendScan(url, headers);
                 break;
@@ -557,7 +552,7 @@ console.log('[HeaderSense] 当前扫描模式:', currentScanMode);
 // 检查后端连接状态
 checkBackendHealth().then(isHealthy => {
     console.log('[HeaderSense] 后端状态:', isHealthy ? '健康' : '不可用');
-    if (!isHealthy && currentScanMode === SCAN_MODES.BACKEND) {
+    if (!isHealthy) {
         console.warn('[HeaderSense] 后端不可用，自动切换到混合模式');
         setScanMode(SCAN_MODES.HYBRID);
     }
