@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<div class="container">
+  <div class="developer-mode" id="developerMode";>
+    <!-- 检测结果概览 -->
+    <div class="toggle-section">
+      <div class="toggle-header" id="toggleOverview">
+        <span>📊 检测结果概览</span>
+        <span class="arrow" id="overview-arrow">▼</span>
+      </div>
+      <div class="toggle-content" id="overview-content">
+        <div id="overviewStats">
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-number high" id="dev-high">0</div>
+              <div class="stat-label">高危</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number medium" id="dev-medium">0</div>
+              <div class="stat-label">中危</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number low" id="dev-low">0</div>
+              <div class="stat-label">低危</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 问题详情 -->
+    <div class="toggle-section">
+      <div class="toggle-header" id="toggleIssues">
+        <span>🔍 问题详情</span>
+        <span class="arrow" id="issues-arrow">▼</span>
+      </div>
+      <div class="toggle-content active" id="issues-content">
+        <div class="issues-section" id="issuesList">
+          <!-- 问题列表将在这里动态生成 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 响应头详情 -->
+    <div class="toggle-section">
+      <div class="toggle-header" id="toggleHeaders">
+        <span>📋 响应头详情</span>
+        <span class="arrow" id="headers-arrow">▼</span>
+      </div>
+      <div class="toggle-content" id="headers-content">
+        <div class="header-list" id="headersList">
+          <!-- 响应头列表将在这里动态生成 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="buttons">
+      <button class="btn btn-primary" id="exportBtn">
+        <span>📄</span> 导出报告
+      </button>
+      <button class="btn btn-secondary" id="devRefreshBtn">
+        <span>🔄</span> 重新检测
+      </button>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>
