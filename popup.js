@@ -99,8 +99,14 @@ async function getScanResultsFromBackground() {
             (response) => {
                 if (chrome.runtime.lastError) {
                     reject(new Error(chrome.runtime.lastError.message));
+                } else if (response && response.scanResult) {
+                    // 合并 headers 字段
+                    resolve({
+                        ...response.scanResult,
+                        headers: response.headers || {}
+                    });
                 } else {
-                    resolve(response);
+                    resolve(null);
                 }
             }
         );

@@ -27,11 +27,17 @@ chrome.webRequest.onHeadersReceived.addListener(
                 headers: headers
             });
 
+            console.log('putSecurityState:', details.tabId, scanResult);
+
             updateIcon(details.tabId, scanResult.riskLevel);
 
             chrome.tabs.sendMessage(details.tabId, {
                 action: 'securityScanResult',
                 result: scanResult
+            },() => {
+                if (chrome.runtime.lastError) {
+                    console.error('Error sending message to tab:', chrome.runtime.lastError);
+                }
             });
 
         } catch (error) {
@@ -44,8 +50,9 @@ chrome.webRequest.onHeadersReceived.addListener(
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (changeInfo.status === 'loading') {
-        tabSecurityStates.delete(tabId);
-        updateIcon(tabId, 'unknown');
+        // console.log('Tab updated:', tabId, changeInfo);
+        // tabSecurityStates.delete(tabId);
+        // updateIcon(tabId, 'unknown');
     }
 });
 
@@ -56,6 +63,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getSecurityState') {
         const state = tabSecurityStates.get(request.tabId) || null;
+        console.log('getSecurityState:', request.tabId, state);
         sendResponse(state);
         return true;
     }

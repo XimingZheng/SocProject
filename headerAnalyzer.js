@@ -78,6 +78,8 @@ export default class HeaderAnalyzer {
         const scorePercentage = maxScore > 0 ? totalScore / maxScore : 0;
         const overallRiskLevel = this.calculateOverallRisk(scorePercentage, issues);
 
+        console.log('percentage:', scorePercentage, ';riskLevel:', overallRiskLevel);
+
         return {
             riskLevel: overallRiskLevel,
             score: Math.round(scorePercentage * 100),
