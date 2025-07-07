@@ -10,7 +10,7 @@
 <div class="container">
     <div class="header">
         <h1>HeaderSense</h1>
-        <p>网页安全响应头检测器 - 增强版</p>
+        <p>网页安全响应头检测器 - 快速版</p>
     </div>
 
     <div class="content">
@@ -29,8 +29,6 @@
             <div class="url-label">正在检测:</div>
             <div class="url-value" id="currentUrl">加载中...</div>
         </div>
-
-        <!-- 扫描信息显示区域（动态插入） -->
 
         <!-- 加载状态 -->
         <div class="loading" id="loadingState">
@@ -87,8 +85,6 @@
                 </button>
             </div>
 
-            <!-- 额外功能按钮区域（动态插入） -->
-
             <!-- 解释内容 -->
             <div id="explanationContent" style="display: none; margin-top: 15px;">
                 <div class="info-tip">
@@ -100,10 +96,9 @@
                             <li>点击劫持攻击</li>
                             <li>MIME 类型嗅探</li>
                             <li>不安全的HTTP连接</li>
-                            <li>数据泄露和隐私风险</li>
                         </ul>
-                        <div style="margin-top: 10px; font-size: 11px;">
-                            <strong>增强版新功能:</strong> 支持XSS、SQL注入等高级漏洞检测
+                        <div style="margin-top: 10px; font-size: 11px; color: #666;">
+                            <strong>快速版说明:</strong> 专注于响应头检测，速度更快，稳定性更好
                         </div>
                     </div>
                 </div>
@@ -138,51 +133,15 @@
                         <div class="scan-mode-info" style="margin-top: 15px;">
                             <div class="info-item">
                                 <span class="info-label">扫描模式:</span>
-                                <span class="info-value" id="currentScanMode">-</span>
+                                <span class="info-value">🔧 本地扫描（快速版）</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">后端状态:</span>
-                                <span class="info-value" id="backendStatusInfo">检查中...</span>
+                                <span class="info-label">检测类型:</span>
+                                <span class="info-value">HTTP安全响应头</span>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 扫描器状态 -->
-            <div class="toggle-section">
-                <div class="toggle-header" id="toggleScanners">
-                    <span>🔍 扫描器状态</span>
-                    <span class="arrow" id="scanners-arrow">▼</span>
-                </div>
-                <div class="toggle-content" id="scanners-content">
-                    <div class="scanners-list" id="scannersList">
-                        <div class="scanner-item">
-                            <div class="scanner-icon">🛡️</div>
-                            <div class="scanner-info">
-                                <div class="scanner-name">响应头扫描器</div>
-                                <div class="scanner-status">本地运行</div>
-                            </div>
-                        </div>
-                        <div class="scanner-item">
-                            <div class="scanner-icon">⚡</div>
-                            <div class="scanner-info">
-                                <div class="scanner-name">XSS检测器</div>
-                                <div class="scanner-status" id="xssStatus">后端运行</div>
-                            </div>
-                        </div>
-                        <div class="scanner-item">
-                            <div class="scanner-icon">💉</div>
-                            <div class="scanner-info">
-                                <div class="scanner-name">SQL注入检测器</div>
-                                <div class="scanner-status" id="sqlStatus">后端运行</div>
-                            </div>
-                        </div>
-                        <div class="scanner-item">
-                            <div class="scanner-icon">🔒</div>
-                            <div class="scanner-info">
-                                <div class="scanner-name">SSL检测器</div>
-                                <div class="scanner-status" id="sslStatus">后端运行</div>
+                            <div class="info-item">
+                                <span class="info-label">版本:</span>
+                                <span class="info-value">HeaderSense v1.5 快速版</span>
                             </div>
                         </div>
                     </div>
@@ -215,31 +174,42 @@
                 </div>
             </div>
 
-            <!-- 高级功能 -->
+            <!-- 快速版说明 -->
             <div class="toggle-section">
-                <div class="toggle-header" id="toggleAdvanced">
-                    <span>⚙️ 高级功能</span>
-                    <span class="arrow" id="advanced-arrow">▼</span>
+                <div class="toggle-header" id="toggleInfo">
+                    <span>ℹ️ 快速版说明</span>
+                    <span class="arrow" id="info-arrow">▼</span>
                 </div>
-                <div class="toggle-content" id="advanced-content">
-                    <div class="advanced-controls">
-                        <div class="control-group">
-                            <label class="control-label">扫描模式:</label>
-                            <button class="btn btn-secondary btn-small" id="advancedScanModeBtn">
-                                <span id="advancedModeText">智能模式</span>
-                            </button>
+                <div class="toggle-content" id="info-content">
+                    <div class="info-section">
+                        <div class="info-box">
+                            <h4>🚀 快速版特点</h4>
+                            <ul style="margin: 10px 0; padding-left: 20px; font-size: 12px;">
+                                <li>专注于HTTP安全响应头检测</li>
+                                <li>移除了复杂的后端通信逻辑</li>
+                                <li>优化了扫描速度和稳定性</li>
+                                <li>减少了内存占用和CPU负载</li>
+                            </ul>
                         </div>
-                        <div class="control-group">
-                            <label class="control-label">后端服务:</label>
-                            <button class="btn btn-secondary btn-small" id="advancedBackendBtn">
-                                <span id="advancedBackendText">检查状态</span>
-                            </button>
+                        
+                        <div class="info-box" style="margin-top: 10px;">
+                            <h4>🔍 检测内容</h4>
+                            <ul style="margin: 10px 0; padding-left: 20px; font-size: 12px;">
+                                <li>X-Content-Type-Options</li>
+                                <li>X-Frame-Options</li>
+                                <li>Content-Security-Policy</li>
+                                <li>Strict-Transport-Security</li>
+                                <li>X-XSS-Protection</li>
+                                <li>Referrer-Policy</li>
+                            </ul>
                         </div>
-                        <div class="control-group">
-                            <label class="control-label">详细扫描:</label>
-                            <button class="btn btn-primary btn-small" id="advancedDetailedBtn">
-                                <span>🔍</span> 启动全面扫描
-                            </button>
+
+                        <div class="info-box" style="margin-top: 10px;">
+                            <h4>💡 使用建议</h4>
+                            <p style="font-size: 12px; color: #666; margin: 8px 0;">
+                                快速版适合日常使用，如需要更全面的安全检测（如XSS、SQL注入等），
+                                建议使用完整版HeaderSense。
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -258,9 +228,9 @@
     </div>
 
     <div class="footer">
-        <div>HeaderSense v2.0 - 让网页更安全</div>
+        <div>HeaderSense v1.5 - 快速稳定版</div>
         <div style="font-size: 10px; margin-top: 4px; opacity: 0.8;">
-            增强版 | 本地+云端混合扫描
+            专注响应头检测 | 速度优化 | 稳定可靠
         </div>
     </div>
 </div>

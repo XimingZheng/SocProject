@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "HeaderSense - 网页安全检测",
-  "version": "1.0.0",
-  "description": "实时检测网页HTTP响应头安全配置",
+  "name": "HeaderSense - 网页安全检测 (增强版)",
+  "version": "2.0.0",
+  "description": "实时检测网页HTTP响应头安全配置，支持XSS、SQL注入等高级漏洞检测",
   "permissions": [
     "webRequest",
     "storage",
@@ -11,7 +11,8 @@
     "scripting"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "http://localhost:5000/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -36,5 +37,11 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

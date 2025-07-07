@@ -1,4 +1,4 @@
-/* popup.css - HeaderSense 弹窗样式 */
+/* enhanced_popup.css - HeaderSense 增强版弹窗样式 */
 
 /* 基础样式重置 */
 * {
@@ -8,11 +8,12 @@
 }
 
 body {
-    width: 380px;
+    width: 420px;
     min-height: 500px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: #333;
+    overflow: hidden;
 }
 
 /* 容器样式 */
@@ -91,7 +92,7 @@ body {
     background: #f8f9fa;
     padding: 10px;
     border-radius: 6px;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     font-size: 12px;
 }
 
@@ -104,6 +105,41 @@ body {
     color: #333;
     font-weight: 500;
     word-break: break-all;
+}
+
+/* 扫描信息样式 */
+.scan-info {
+    background: #e3f2fd;
+    border: 1px solid #90caf9;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    font-size: 11px;
+}
+
+.scan-info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.scan-info-item:last-child {
+    margin-bottom: 0;
+}
+
+.scan-label {
+    color: #1976d2;
+    font-weight: 500;
+}
+
+.scan-value {
+    color: #333;
+}
+
+.scan-error .scan-label,
+.scan-error .scan-value {
+    color: #d32f2f;
 }
 
 /* 加载状态 */
@@ -176,7 +212,7 @@ body {
 }
 
 .security-badge.low {
-    background: linear-gradient(135deg, #4caf50, #66bb6a);
+    background: linear-gradient(135deg, #42a5f5, #64b5f6);
 }
 
 .security-badge.unknown {
@@ -211,7 +247,11 @@ body {
 }
 
 .score-circle.low {
-    background: linear-gradient(135deg, #4caf50, #66bb6a);
+    background: linear-gradient(135deg, #42a5f5, #64b5f6);
+}
+
+.score-circle.unknown {
+    background: linear-gradient(135deg, #9e9e9e, #bdbdbd);
 }
 
 /* 统计网格 */
@@ -244,7 +284,7 @@ body {
 }
 
 .stat-number.low {
-    color: #2196f3;
+    color: #42a5f5;
 }
 
 .stat-label {
@@ -292,6 +332,133 @@ body {
 
 .btn-secondary:hover {
     background: #e9ecef;
+}
+
+/* 额外操作按钮 */
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.action-buttons .btn {
+    flex: none;
+    min-width: 120px;
+    font-size: 11px;
+    padding: 8px 12px;
+}
+
+/* 扫描模式选择器 */
+.scan-mode-options {
+    margin-bottom: 20px;
+}
+
+.mode-option {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.mode-option:hover {
+    border-color: #667eea;
+    background: #f8f9ff;
+}
+
+.mode-option.selected {
+    border-color: #667eea;
+    background: #e3f2fd;
+}
+
+.mode-option[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #f5f5f5;
+}
+
+.mode-icon {
+    font-size: 24px;
+    margin-right: 15px;
+    width: 40px;
+    text-align: center;
+}
+
+.mode-info h4 {
+    margin-bottom: 5px;
+    color: #333;
+    font-size: 14px;
+}
+
+.mode-info p {
+    color: #666;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.mode-pros {
+    font-size: 10px;
+    color: #4caf50;
+    font-weight: 500;
+}
+
+.mode-warning {
+    font-size: 10px;
+    color: #ff9800;
+    font-weight: 500;
+    margin-top: 5px;
+}
+
+.mode-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+/* 后端状态详情 */
+.backend-status-details {
+    margin-bottom: 20px;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.status-item:last-child {
+    border-bottom: none;
+}
+
+.status-label {
+    font-weight: 500;
+    color: #666;
+    font-size: 12px;
+}
+
+.status-value {
+    font-size: 12px;
+    color: #333;
+}
+
+.status-healthy {
+    color: #4caf50 !important;
+}
+
+.status-error {
+    color: #f44336 !important;
+}
+
+.backend-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
 }
 
 /* 解释内容 */
@@ -348,6 +515,7 @@ body {
 
 .arrow {
     transition: transform 0.2s;
+    font-size: 12px;
 }
 
 .arrow.rotate {
@@ -392,20 +560,45 @@ body {
 }
 
 .issue-item.low {
-    border-left-color: #2196f3;
+    border-left-color: #42a5f5;
     background: #f3f8ff;
+}
+
+.issue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
 }
 
 .issue-title {
     font-weight: 600;
-    margin-bottom: 4px;
     color: #333;
+    flex-grow: 1;
+}
+
+.issue-source {
+    font-size: 10px;
+    color: #666;
+    background: rgba(0,0,0,0.1);
+    padding: 2px 6px;
+    border-radius: 10px;
 }
 
 .issue-description {
     color: #666;
     font-size: 12px;
     margin-bottom: 8px;
+}
+
+.issue-evidence {
+    background: rgba(0,0,0,0.05);
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #333;
+    margin-bottom: 8px;
+    font-family: 'Courier New', monospace;
 }
 
 .issue-fix {
@@ -460,14 +653,69 @@ body {
     margin-bottom: 15px;
 }
 
-/* 页脚 */
-.footer {
-    text-align: center;
-    padding: 15px;
+/* 模态框 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: white;
+    border-radius: 8px;
+    min-width: 400px;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    background: #f8f9fa;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
     color: #666;
-    font-size: 11px;
-    border-top: 1px solid #eee;
-    margin-top: auto;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close:hover {
+    color: #333;
+    background: #e0e0e0;
+    border-radius: 50%;
+}
+
+.modal-body {
+    padding: 20px;
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
 /* Toast提示 */
@@ -484,6 +732,28 @@ body {
     z-index: 1000;
     opacity: 0;
     transition: opacity 0.3s;
+}
+
+.toast-error {
+    background: #f44336;
+}
+
+.toast-success {
+    background: #4caf50;
+}
+
+.toast-warning {
+    background: #ff9800;
+}
+
+/* 页脚 */
+.footer {
+    text-align: center;
+    padding: 15px;
+    color: #666;
+    font-size: 11px;
+    border-top: 1px solid #eee;
+    margin-top: auto;
 }
 
 /* 开发者模式 */
@@ -504,34 +774,82 @@ body {
     display: block;
 }
 
-/* 状态图标 */
-.status-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5em;
-    flex-shrink: 0;
+/* 响应式调整 */
+@media (max-height: 600px) {
+    body {
+        min-height: auto;
+    }
+    
+    .container {
+        min-height: auto;
+    }
+    
+    .content {
+        padding: 15px;
+    }
+    
+    .header {
+        padding: 15px;
+    }
 }
 
-.status-icon.safe {
-    background: #4CAF50;
-    color: white;
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 6px;
 }
 
-.status-icon.warning {
-    background: #FF9800;
-    color: white;
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
 }
 
-.status-icon.danger {
-    background: #f44336;
-    color: white;
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
 }
 
-.status-icon.unknown {
-    background: #9E9E9E;
-    color: white;
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.user-mode,
+.developer-mode {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* 扫描模式指示器 */
+.scan-mode-indicator {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 500;
+    margin-left: 8px;
+}
+
+.scan-mode-indicator.local {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.scan-mode-indicator.backend {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.scan-mode-indicator.hybrid {
+    background: #e8f5e8;
+    color: #388e3c;
 }
