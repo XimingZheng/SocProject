@@ -505,24 +505,24 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 function updateIcon(tabId, riskLevel) {
     const iconPaths = {
         high: {
-            16: 'icons/icon16-red.png',
-            48: 'icons/icon48-red.png',
-            128: 'icons/icon128-red.png'
+            16: '../icons/icon16-red.png',
+            48: '../icons/icon48-red.png',
+            128: '../icons/icon128-red.png'
         },
         medium: {
-            16: 'icons/icon16-orange.png',
-            48: 'icons/icon48-orange.png',
-            128: 'icons/icon128-orange.png'
+            16: '../icons/icon16-orange.png',
+            48: '../icons/icon48-orange.png',
+            128: '../icons/icon128-orange.png'
         },
         low: {
-            16: 'icons/icon16-green.png',
-            48: 'icons/icon48-green.png',
-            128: 'icons/icon128-green.png'
+            16: '../icons/icon16-green.png',
+            48: '../icons/icon48-green.png',
+            128: '../icons/icon128-green.png'
         },
         unknown: {
-            16: 'icons/icon16.png',
-            48: 'icons/icon48.png',
-            128: 'icons/icon128.png'
+            16: '../icons/shield-16.png',
+            48: '../icons/shield-48.png',
+            128: '../icons/shield-128.png'
         }
     };
 
