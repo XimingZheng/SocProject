@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Flask后端安全扫描服务器
-为Chrome扩展提供多线程安全扫描服务
+Flask backend security scanning server
+Provides multithreaded scanning service for Chrome extension
 """
 
 from flask import Flask, request, jsonify
@@ -19,7 +19,7 @@ from manager import ThreadSafeScannerManager
 from scanners.HeaderScanner import HeaderScanner
 
 # ========================
-# 基础配置
+# Basic configuration
 # ========================
 
 app = Flask(__name__)
@@ -28,12 +28,12 @@ CORS(app)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# 全局任务存储
+# Global task storage
 scan_tasks: Dict[str, Any] = {}
 task_results: Dict[str, Any] = {}
 
 # ========================
-# API 路由
+# API Routes
 # ========================
 
 @app.route('/api/scan', methods=['POST'])
@@ -44,7 +44,7 @@ def start_scan():
         headers_data = data.get('headers', {})
 
         if not url:
-            return jsonify({'error': '缺少URL参数'}), 400
+            return jsonify({'error': 'Missing URL parameter'}), 400
 
         task_id = str(uuid.uuid4())
 
@@ -60,7 +60,7 @@ def start_scan():
                 loop.close()
 
             except Exception as e:
-                logger.error(f"扫描任务 {task_id} 失败: {e}")
+                logger.error(f"Scan task {task_id} failed: {e}")
                 task_results[task_id] = {'status': 'failed', 'error': str(e)}
 
         scan_thread = threading.Thread(target=run_scan_task, daemon=True)
@@ -75,10 +75,10 @@ def start_scan():
 
         task_results[task_id] = {'status': 'running'}
 
-        return jsonify({'task_id': task_id, 'status': 'started', 'message': '扫描任务已启动'})
+        return jsonify({'task_id': task_id, 'status': 'started', 'message': 'Scan task started'})
 
     except Exception as e:
-        logger.error(f"启动扫描任务失败: {e}")
+        logger.error(f"Failed to start scan task: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -86,7 +86,7 @@ def start_scan():
 def get_scan_status(task_id):
     try:
         if task_id not in task_results:
-            return jsonify({'error': '任务不存在'}), 404
+            return jsonify({'error': 'Task not found'}), 404
 
         task_result = task_results[task_id]
         task_info = scan_tasks.get(task_id, {})
@@ -107,7 +107,7 @@ def get_scan_status(task_id):
         return jsonify(response)
 
     except Exception as e:
-        logger.error(f"获取任务状态失败: {e}")
+        logger.error(f"Failed to get task status: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -119,7 +119,7 @@ def quick_scan():
         headers_data = data.get('headers', {})
 
         if not url:
-            return jsonify({'error': '缺少URL参数'}), 400
+            return jsonify({'error': 'Missing URL parameter'}), 400
 
         scanner = HeaderScanner()
 
@@ -162,11 +162,11 @@ def quick_scan():
                 'low_risk': len(low_risk)
             },
             'issues': [r.to_dict() for r in results],
-            'summary': f"发现 {len(results)} 个响应头安全问题" if results else "响应头配置良好"
+            'summary': f"{len(results)} HTTP header security issues found" if results else "HTTP headers are properly configured"
         })
 
     except Exception as e:
-        logger.error(f"快速扫描失败: {e}")
+        logger.error(f"Quick scan failed: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -185,22 +185,22 @@ def get_available_scanners():
     scanners_info = [
         {
             'name': 'Header Scanner',
-            'description': '检测HTTP安全响应头配置',
+            'description': 'Detects HTTP response header security misconfigurations',
             'vulnerability_types': ['Missing Security Header', 'Misconfigured Security Header']
         },
         {
             'name': 'XSS Scanner',
-            'description': '检测跨站脚本攻击漏洞',
+            'description': 'Detects Cross-Site Scripting vulnerabilities',
             'vulnerability_types': ['Cross-Site Scripting (XSS)']
         },
         {
             'name': 'SQL Injection Scanner',
-            'description': '检测SQL注入漏洞',
+            'description': 'Detects SQL injection vulnerabilities',
             'vulnerability_types': ['SQL Injection']
         },
         {
             'name': 'SSL Scanner',
-            'description': '检测SSL/TLS配置问题',
+            'description': 'Detects SSL/TLS configuration issues',
             'vulnerability_types': ['Insecure Protocol']
         }
     ]
@@ -211,7 +211,7 @@ def get_available_scanners():
     })
 
 # ========================
-# 清理过期任务
+# Expired task cleanup
 # ========================
 
 def cleanup_expired_tasks():
@@ -221,31 +221,31 @@ def cleanup_expired_tasks():
             expired = [task_id for task_id, info in scan_tasks.items()
                        if current_time - info.get('start_time', current_time) > 600]
             for task_id in expired:
-                logger.info(f"清理过期任务: {task_id}")
+                logger.info(f"Cleaning up expired task: {task_id}")
                 scan_tasks.pop(task_id, None)
                 task_results.pop(task_id, None)
             time.sleep(60)
         except Exception as e:
-            logger.error(f"清理任务出错: {e}")
+            logger.error(f"Error during task cleanup: {e}")
             time.sleep(60)
 
 # ========================
-# 启动服务
+# Start server
 # ========================
 
 if __name__ == '__main__':
     threading.Thread(target=cleanup_expired_tasks, daemon=True).start()
 
-    print("🔒 HeaderSense 后端服务器启动中...")
+    print("🔒 HeaderSense backend server starting...")
     print("=" * 50)
-    print("API端点:")
+    print("API Endpoints:")
     print("  POST /api/scan")
     print("  POST /api/scan/quick")
     print("  GET  /api/scan/status/<task_id>")
     print("  GET  /api/health")
     print("  GET  /api/scanners")
     print("=" * 50)
-    print("服务器运行在: http://localhost:5000")
+    print("Server running at: http://localhost:5000")
 
     app.run(
         host='localhost',

@@ -1,5 +1,3 @@
-// enhanced_popup.js - 支持后端通信的增强版popup脚本
-
 let currentMode = 'user';
 let scanResults = null;
 let currentTab = null;
@@ -8,13 +6,13 @@ let currentScanMode = 'backend'; // 默认使用后端模式
 
 // 扫描模式配置
 const SCAN_MODES = {
-    BACKEND: 'backend',  // 后端扫描（优先模式）
+    BACKEND: 'backend',  // Backend Scan（优先模式）
     HYBRID: 'hybrid'     // 混合模式
 };
 
 const SCAN_MODE_LABELS = {
-    'backend': '☁️ 后端扫描',
-    'hybrid': '⚡ 智能模式'
+    'backend': '☁️ Backend Scan',
+    'hybrid': '⚡ Smart Mode'
 };
 
 // 初始化
@@ -101,13 +99,13 @@ function updateBackendStatusUI() {
     if (!statusBtn) return;
 
     if (backendStatus.isHealthy) {
-        statusBtn.innerHTML = '🟢 后端在线';
+        statusBtn.innerHTML = '🟢 backend online';
         statusBtn.style.color = '#4CAF50';
-        statusBtn.title = `后端服务正常 - ${backendStatus.backendUrl}`;
+        statusBtn.title = `Backend service is online - ${backendStatus.backendUrl}`;
     } else {
-        statusBtn.innerHTML = '🔴 后端离线';
+        statusBtn.innerHTML = '🔴 backend unavailable';
         statusBtn.style.color = '#f44336';
-        statusBtn.title = `后端服务不可用 - ${backendStatus.backendUrl || 'Unknown'}`;
+        statusBtn.title = `Backend service unavailable - ${backendStatus.backendUrl || 'Unknown'}`;
     }
 }
 
@@ -125,13 +123,13 @@ function updateScanModeUI() {
     if (currentScanMode === 'backend' && !backendStatus?.isHealthy) {
         scanModeBtn.style.backgroundColor = '#ffeb3b';
         scanModeBtn.style.color = '#333';
-        scanModeBtn.title = '后端模式但服务不可用，将自动回退到本地扫描';
+        scanModeBtn.title = 'Backend mode unavailable, fallback to local scan';
     }
 }
 
 // 显示扫描模式选择器
 function showScanModeSelector() {
-    const modal = createModal('选择扫描模式', createScanModeContent());
+    const modal = createModal('Select Scan Mode', createScanModeContent());
     document.body.appendChild(modal);
 }
 
@@ -143,32 +141,32 @@ function createScanModeContent() {
             <div class="mode-option ${currentScanMode === 'backend' ? 'selected' : ''}" data-mode="backend" ${!backendStatus?.isHealthy ? 'disabled' : ''}>
                 <div class="mode-icon">☁️</div>
                 <div class="mode-info">
-                    <h4>后端扫描 (推荐)</h4>
-                    <p>全面安全检测，包括XSS、SQL注入、SSL等</p>
-                    <div class="mode-pros">✓ 功能完整 ✓ 检测深度高 ✓ 实时更新</div>
-                    ${!backendStatus?.isHealthy ? '<div class="mode-warning">⚠️ 后端服务不可用</div>' : ''}
+                    <h4>Backend Scan (recommended)</h4>
+                    <p>Comprehensive scan including XSS, SQL Injection, SSL</p>
+                    <div class="mode-pros">✓ Full features ✓ Deep detection ✓ Real-time updates</div>
+                    ${!backendStatus?.isHealthy ? '<div class="mode-warning">⚠️ Backend service unavailable</div>' : ''}
                 </div>
             </div>
             
             <div class="mode-option ${currentScanMode === 'hybrid' ? 'selected' : ''}" data-mode="hybrid">
                 <div class="mode-icon">⚡</div>
                 <div class="mode-info">
-                    <h4>智能模式</h4>
-                    <p>快速本地扫描 + 详细后端分析</p>
-                    <div class="mode-pros">✓ 兼顾速度与全面性 ✓ 自动回退</div>
+                    <h4>Smart Mode</h4>
+                    <p>Quick local scan + detailed backend analysis</p>
+                    <div class="mode-pros">✓ Balanced speed and completeness ✓ Auto fallback</div>
                 </div>
             </div>
         </div>
         
         <div class="mode-description">
             <div class="description-item">
-                <strong>推荐使用后端扫描模式</strong>以获得最全面的安全检测
+                <strong>Backend Scan mode recommended </strong>for most comprehensive security checks.
             </div>
         </div>
         
         <div class="mode-actions">
-            <button class="btn btn-primary" id="confirmModeBtn">确认</button>
-            <button class="btn btn-secondary" id="cancelModeBtn">取消</button>
+            <button class="btn btn-primary" id="confirmModeBtn">Confirm</button>
+            <button class="btn btn-secondary" id="cancelModeBtn">Cancel</button>
         </div>
     `;
 
@@ -234,34 +232,34 @@ function showBackendStatus() {
     content.innerHTML = `
         <div class="backend-status-details">
             <div class="status-item">
-                <span class="status-label">后端地址:</span>
+                <span class="status-label">Backend URL:</span>
                 <span class="status-value">${backendStatus.backendUrl || 'Unknown'}</span>
             </div>
             <div class="status-item">
-                <span class="status-label">连接状态:</span>
+                <span class="status-label">Connection:</span>
                 <span class="status-value ${backendStatus.isHealthy ? 'status-healthy' : 'status-error'}">
-                    ${backendStatus.isHealthy ? '🟢 正常' : '🔴 异常'}
+                    ${backendStatus.isHealthy ? '🟢 normal' : '🔴 abnormal'}
                 </span>
             </div>
             <div class="status-item">
-                <span class="status-label">当前模式:</span>
+                <span class="status-label">Current Mode:</span>
                 <span class="status-value">${SCAN_MODE_LABELS[currentScanMode]}</span>
             </div>
             ${backendStatus.error ? `
                 <div class="status-item">
-                    <span class="status-label">错误信息:</span>
+                    <span class="status-label">Error:</span>
                     <span class="status-value status-error">${backendStatus.error}</span>
                 </div>
             ` : ''}
         </div>
         
         <div class="backend-actions">
-            <button class="btn btn-primary" id="recheckBackendBtn">重新检查</button>
-            <button class="btn btn-secondary" id="closeStatusBtn">关闭</button>
+            <button class="btn btn-primary" id="recheckBackendBtn">Recheck</button>
+            <button class="btn btn-secondary" id="closeStatusBtn">Close</button>
         </div>
     `;
 
-    const modal = createModal('后端服务状态', content);
+    const modal = createModal('Backend Service Status', content);
     document.body.appendChild(modal);
 
     // 添加事件监听
@@ -283,7 +281,7 @@ function showBackendStatus() {
 async function startDetailedScan() {
     try {
         showLoading();
-        showToast('正在启动详细安全扫描...');
+        showToast('Starting detailed scan...');
 
         const response = await chrome.runtime.sendMessage({ 
             action: 'startDetailedScan', 
@@ -293,15 +291,15 @@ async function startDetailedScan() {
         if (response.success) {
             scanResults = response.result;
             updateUserInterface(scanResults);
-            showToast('详细扫描完成');
+            showToast('Detailed scan completed');
         } else {
-            throw new Error(response.error || '详细扫描失败');
+            throw new Error(response.error || 'Detailed scan failed');
         }
 
         hideLoading();
     } catch (error) {
         hideLoading();
-        showToast('详细扫描失败: ' + error.message, 'error');
+        showToast('Detailed scan failed: ' + error.message, 'error');
     }
 }
 
@@ -316,14 +314,14 @@ async function loadScanResults() {
             scanResults = results;
             updateUserInterface(results);
         } else {
-            showError('无法获取扫描结果，正在重新扫描...');
+            showError('Failed to retrieve scan result, rescanning...');
             await performRescan();
         }
 
         hideLoading();
     } catch (error) {
         hideLoading();
-        showError('获取扫描结果失败: ' + error.message);
+        showError('Failed to get scan result: ' + error.message);
     }
 }
 
@@ -353,7 +351,7 @@ async function getScanResultsFromBackground() {
 async function performRescan() {
     try {
         showLoading();
-        showToast('正在重新扫描...');
+        showToast('Rescanning...');
 
         const response = await chrome.runtime.sendMessage({ 
             action: 'rescan', 
@@ -364,13 +362,13 @@ async function performRescan() {
             // 等待扫描完成
             await new Promise(resolve => setTimeout(resolve, 2000));
             await loadScanResults();
-            showToast('重新扫描完成');
+            showToast('Rescan complete');
         } else {
-            throw new Error(response.error || '重新扫描失败');
+            throw new Error(response.error || 'Rescan failed');
         }
     } catch (error) {
         hideLoading();
-        showToast('重新扫描失败: ' + error.message, 'error');
+        showToast('Rescan failed: ' + error.message, 'error');
     }
 }
 
@@ -427,16 +425,16 @@ function updateScanInfo(results) {
 
     scanInfo.innerHTML = `
         <div class="scan-info-item">
-            <span class="scan-label">扫描模式:</span>
+            <span class="scan-label">Scan Mode:</span>
             <span class="scan-value">${scanModeText}</span>
         </div>
         <div class="scan-info-item">
-            <span class="scan-label">扫描时间:</span>
+            <span class="scan-label">Scan Time:</span>
             <span class="scan-value">${scanTime}</span>
         </div>
         ${results.error ? `
             <div class="scan-info-item scan-error">
-                <span class="scan-label">⚠️ 扫描警告:</span>
+                <span class="scan-label">⚠️ Scan Warning:</span>
                 <span class="scan-value">${results.error}</span>
             </div>
         ` : ''}
@@ -457,16 +455,16 @@ function updateUserMode(results) {
     let badgeIcon = '';
 
     if (results.riskLevel === 'high') {
-        badgeText = '存在安全风险';
+        badgeText = 'Security risks detected';
         badgeIcon = '⚠️';
     } else if (results.riskLevel === 'medium') {
-        badgeText = '部分配置缺失';
+        badgeText = 'Partial configuration missing';
         badgeIcon = '⚠️';
     } else if (results.riskLevel === 'low') {
-        badgeText = '轻微问题';
+        badgeText = 'Minor issues';
         badgeIcon = '💡';
     } else {
-        badgeText = '安全配置良好';
+        badgeText = 'Security well configured';
         badgeIcon = '✅';
     }
 
@@ -475,7 +473,7 @@ function updateUserMode(results) {
     // 更新评分
     scoreCircle.className = `score-circle ${results.riskLevel}`;
     scoreNumber.textContent = results.score || 0;
-    scoreDescription.textContent = `安全评分: ${results.score || 0}/100`;
+    scoreDescription.textContent = `Security Score: ${results.score || 0}/100`;
 
     // 更新统计信息
     const highCount = results.issues ? results.issues.filter(issue => issue.riskLevel === 'high').length : 0;
@@ -514,14 +512,14 @@ function updateModeSpecificButtons(results) {
     // 后端状态按钮
     buttonsHTML += `
         <button class="btn btn-secondary" id="backendStatusBtn">
-            ${backendStatus?.isHealthy ? '🟢 后端在线' : '🔴 后端离线'}
+            ${backendStatus?.isHealthy ? '🟢 backend online' : '🔴 backend unavailable'}
         </button>
     `;
 
-    // 详细扫描按钮（当前为智能模式且后端可用时，或后端离线时提供重试）
+    // 详细扫描按钮（当前为Smart Mode且后端可用时，或后端离线时提供重试）
     if ((results.scanMode === 'hybrid' && backendStatus?.isHealthy) || 
         (!backendStatus?.isHealthy && currentScanMode === 'backend')) {
-        const buttonText = !backendStatus?.isHealthy ? '🔄 重试后端' : '🔍 详细扫描';
+        const buttonText = !backendStatus?.isHealthy ? '🔄 restart backend' : '🔍 detailed scan';
         buttonsHTML += `
             <button class="btn btn-primary" id="detailedScanBtn">
                 ${buttonText}
@@ -562,19 +560,19 @@ function updateDeveloperMode(results) {
     document.getElementById('dev-medium').textContent = mediumCount;
     document.getElementById('dev-low').textContent = lowCount;
 
-    // 更新问题列表
+    // 更新Issue列表
     const issuesList = document.getElementById('issuesList');
     issuesList.innerHTML = '';
 
     if (!results.issues || results.issues.length === 0) {
-        issuesList.innerHTML = '<div class="empty-state"><div class="icon">🎉</div><div>未发现安全问题</div></div>';
+        issuesList.innerHTML = '<div class="empty-state"><div class="icon">🎉</div><div>No security issues found</div></div>';
     } else {
         results.issues.forEach((issue, index) => {
             const issueElement = document.createElement('div');
             issueElement.className = `issue-item ${issue.riskLevel}`;
             
-            // 处理不同来源的问题格式
-            const title = issue.header || issue.title || `问题 ${index + 1}`;
+            // 处理不同来源的Issue格式
+            const title = issue.header || issue.title || `Issue ${index + 1}`;
             const description = issue.description || '无描述';
             const fixSuggestion = issue.fixSuggestion || issue.fix_suggestion || '暂无修复建议';
             const evidence = issue.evidence || '';
@@ -583,11 +581,11 @@ function updateDeveloperMode(results) {
             issueElement.innerHTML = `
                 <div class="issue-header">
                     <div class="issue-title">${title}</div>
-                    <div class="issue-source">${source === 'backend' ? '☁️ 后端' : '🔧 本地'}</div>
+                    <div class="issue-source">${source === 'backend' ? '☁️ backend' : '🔧 local'}</div>
                 </div>
                 <div class="issue-description">${description}</div>
-                ${evidence ? `<div class="issue-evidence"><strong>证据:</strong> ${evidence}</div>` : ''}
-                <div class="issue-fix"><strong>修复建议:</strong> ${fixSuggestion}</div>
+                ${evidence ? `<div class="issue-evidence"><strong>Evidence:</strong> ${evidence}</div>` : ''}
+                <div class="issue-fix"><strong>Fix Suggestion:</strong> ${fixSuggestion}</div>
             `;
             issuesList.appendChild(issueElement);
         });
@@ -608,7 +606,7 @@ function updateDeveloperMode(results) {
             headersList.appendChild(headerElement);
         });
     } else {
-        headersList.innerHTML = '<div class="empty-state">无响应头数据</div>';
+        headersList.innerHTML = '<div class="empty-state">No response header data</div>';
     }
 }
 
@@ -639,24 +637,62 @@ function showError(message) {
     document.getElementById('errorState').style.display = 'block';
     document.getElementById('errorState').innerHTML = `
         <div class="icon">⚠️</div>
-        <div>检测失败</div>
+        <div>Scan failed</div>
         <div style="font-size: 12px; margin-top: 8px;">${message}</div>
     `;
 }
 
 // 切换解释内容
-function toggleExplanation() {
+async function toggleExplanation() {
     const content = document.getElementById('explanationContent');
     const btn = document.getElementById('explainBtn');
 
     if (content.style.display === 'none' || !content.style.display) {
         content.style.display = 'block';
-        btn.innerHTML = '<span>🔼</span> 收起解释';
+        btn.innerHTML = '<span>🔼</span> Collapse Explanation';
+
+        // 添加 AI 解释逻辑
+        content.innerText = '🤖 Analyzing, please wait...';
+        try {
+            const prompt = generateExplanationPrompt(scanResults);
+            const explanation = await callOpenAI(prompt);
+            content.innerText = explanation;
+        } catch (err) {
+            content.innerText = '❌ Explanation failed: ' + err.message;
+        }
+
     } else {
         content.style.display = 'none';
-        btn.innerHTML = '<span>💡</span> 一键解释';
+        btn.innerHTML = '<span>💡</span> Explain';
     }
 }
+
+function generateExplanationPrompt(scanResult) {
+    const issues = (scanResult.issues || []).map((issue, idx) => {
+        return `${idx + 1}. [${issue.riskLevel.toUpperCase()}] ${issue.title || issue.header} - ${issue.description}`;
+    }).join('\n');
+
+    return `请用通俗易懂的方式总结以下网页安全扫描结果，适合非专业用户理解：\n\n${issues || '未发现Issue。'}\n\n提供非常简要的安全建议。使用英文回答，简洁明了。`;
+}
+
+// 改为请求 background 执行 callOpenAI
+async function callOpenAI(prompt) {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+            action: 'explainWithAI',
+            prompt: prompt
+        }, (response) => {
+            if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+            } else if (response?.success) {
+                resolve(response.text);
+            } else {
+                reject(new Error(response?.error || '未知错误'));
+            }
+        });
+    });
+}
+
 
 // 切换折叠区域
 function toggleSection(sectionId) {
@@ -700,7 +736,7 @@ function exportReport() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    showToast('报告已导出');
+    showToast('Report exported');
 }
 
 // 创建模态框
@@ -721,7 +757,7 @@ function createModal(title, content) {
     const modalBody = overlay.querySelector('.modal-body');
     modalBody.appendChild(content);
 
-    // 添加关闭事件
+    // 添加Close事件
     overlay.querySelector('.modal-close').addEventListener('click', () => {
         overlay.remove();
     });

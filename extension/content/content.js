@@ -2,7 +2,7 @@
 
 let currentSecurityState = null;
 
-// 监听来自后台的消息
+// Listen for messages from background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'securityScanResult') {
         currentSecurityState = request.result;
@@ -16,7 +16,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
 });
 
-// 显示安全警告
+// Show security warning banner
 function showSecurityWarning() {
     if (document.getElementById('headersense-warning')) {
         return;
@@ -43,7 +43,7 @@ function showSecurityWarning() {
 
     warningDiv.innerHTML = `
     <span style="margin-right: 10px;">⚠️</span>
-    <strong>安全警告：</strong>此网站缺少重要的安全配置，可能存在安全风险
+    <strong>Security Warning:</strong> This website is missing important security configurations and may pose a risk.
     <button id="headersense-details" style="
       background: rgba(255,255,255,0.2);
       border: 1px solid rgba(255,255,255,0.3);
@@ -53,7 +53,7 @@ function showSecurityWarning() {
       border-radius: 4px;
       cursor: pointer;
       font-size: 12px;
-    ">查看详情</button>
+    ">Details</button>
     <button id="headersense-dismiss" style="
       background: transparent;
       border: none;
@@ -68,7 +68,7 @@ function showSecurityWarning() {
 
     document.body.prepend(warningDiv);
 
-    // 添加事件监听器
+    // Add event listeners
     document.getElementById('headersense-details').addEventListener('click', () => {
         chrome.runtime.sendMessage({ action: 'openPopup' });
     });
@@ -77,7 +77,7 @@ function showSecurityWarning() {
         warningDiv.remove();
     });
 
-    // 自动隐藏
+    // Auto-hide after 10 seconds
     setTimeout(() => {
         if (warningDiv.parentNode) {
             warningDiv.style.opacity = '0';
@@ -91,5 +91,5 @@ function showSecurityWarning() {
     }, 10000);
 }
 
-// 通知后台脚本内容脚本已准备好
+// Notify background that content script is ready
 chrome.runtime.sendMessage({ action: 'contentScriptReady' });

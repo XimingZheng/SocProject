@@ -1,121 +1,111 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HeaderSense - 网页安全检测</title>
+    <title>HeaderSense - Web Security Scanner</title>
     <link rel="stylesheet" href="popup.css">
 </head>
 <body>
 <div class="container">
     <div class="header">
         <h1>HeaderSense</h1>
-        <p>网页安全响应头检测器 - 增强版</p>
+        <p>Enhanced HTTP Security Header Scanner</p>
     </div>
 
     <div class="content">
-        <!-- 模式切换 -->
+        <!-- Mode Switch -->
         <div class="mode-toggle">
             <button class="mode-btn active" id="userModeBtn">
-                <span>👤</span> 用户模式
+                <span>👤</span> User Mode
             </button>
             <button class="mode-btn" id="developerModeBtn">
-                <span>🔧</span> 开发者模式
+                <span>🔧</span> Developer Mode
             </button>
         </div>
 
-        <!-- 当前URL信息 -->
+        <!-- Current URL -->
         <div class="url-info">
-            <div class="url-label">正在检测:</div>
-            <div class="url-value" id="currentUrl">加载中...</div>
+            <div class="url-label">Scanning:</div>
+            <div class="url-value" id="currentUrl">Loading...</div>
         </div>
 
-        <!-- 扫描信息显示区域（动态插入） -->
-
-        <!-- 加载状态 -->
+        <!-- Loading State -->
         <div class="loading" id="loadingState">
             <div class="loading-spinner"></div>
-            <div>正在分析响应头...</div>
+            <div>Analyzing headers...</div>
         </div>
 
-        <!-- 错误状态 -->
+        <!-- Error State -->
         <div class="error-state" id="errorState" style="display: none;">
             <div class="icon">⚠️</div>
-            <div>无法检测当前页面</div>
-            <div style="font-size: 12px; margin-top: 8px;">请确保页面已完全加载</div>
+            <div>Unable to analyze the current page</div>
+            <div style="font-size: 12px; margin-top: 8px;">Please ensure the page is fully loaded</div>
         </div>
 
-        <!-- 用户模式界面 -->
+        <!-- User Mode -->
         <div class="user-mode" id="userMode" style="display: none;">
-            <!-- 安全评级徽章 -->
             <div class="security-badge" id="securityBadge">
                 <span class="icon">🔒</span>
-                <span id="securityText">分析中...</span>
+                <span id="securityText">Analyzing...</span>
             </div>
 
-            <!-- 评分显示 -->
             <div class="score-display">
                 <div class="score-circle" id="scoreCircle">
                     <span id="scoreNumber">-</span>
                 </div>
-                <div id="scoreDescription">安全评分</div>
+                <div id="scoreDescription">Security Score</div>
             </div>
 
-            <!-- 统计信息 -->
             <div class="stats-grid">
                 <div class="stat-item">
                     <div class="stat-number high" id="highIssues">0</div>
-                    <div class="stat-label">高危问题</div>
+                    <div class="stat-label">High Risk</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-number medium" id="mediumIssues">0</div>
-                    <div class="stat-label">中危问题</div>
+                    <div class="stat-label">Medium Risk</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-number low" id="lowIssues">0</div>
-                    <div class="stat-label">建议优化</div>
+                    <div class="stat-label">Low Risk</div>
                 </div>
             </div>
 
-            <!-- 主要操作按钮 -->
             <div class="buttons">
                 <button class="btn btn-primary" id="explainBtn">
-                    <span>💡</span> 一键解释
+                    <span>💡</span> Explain Issues
                 </button>
                 <button class="btn btn-secondary" id="refreshBtn">
-                    <span>🔄</span> 重新检测
+                    <span>🔄</span> Rescan
                 </button>
             </div>
 
-            <!-- 额外功能按钮区域（动态插入） -->
-
-            <!-- 解释内容 -->
             <div id="explanationContent" style="display: none; margin-top: 15px;">
                 <div class="info-tip">
                     <span class="icon">💡</span>
                     <div>
-                        <strong>安全响应头保护您免受:</strong>
+                        <strong>Security headers protect you from:</strong>
                         <ul style="margin-top: 8px; margin-left: 20px; font-size: 11px;">
-                            <li>XSS 跨站脚本攻击</li>
-                            <li>点击劫持攻击</li>
-                            <li>MIME 类型嗅探</li>
-                            <li>不安全的HTTP连接</li>
-                            <li>数据泄露和隐私风险</li>
+                            <li>XSS (Cross-Site Scripting)</li>
+                            <li>Clickjacking</li>
+                            <li>MIME sniffing</li>
+                            <li>Unsecured HTTP connections</li>
+                            <li>Data leaks and privacy risks</li>
                         </ul>
                         <div style="margin-top: 10px; font-size: 11px;">
-                            <strong>增强版新功能:</strong> 支持XSS、SQL注入等高级漏洞检测
+                            <strong>Enhanced Features:</strong> Support for XSS, SQL injection and more
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 开发者模式界面 -->
+        <!-- Developer Mode -->
         <div class="developer-mode" id="developerMode" style="display: none;">
-            <!-- 检测结果概览 -->
             <div class="toggle-section">
                 <div class="toggle-header" id="toggleOverview">
-                    <span>📊 检测结果概览</span>
+                    <span>📊 Scan Overview</span>
                     <span class="arrow" id="overview-arrow">▼</span>
                 </div>
                 <div class="toggle-content" id="overview-content">
@@ -123,36 +113,35 @@
                         <div class="stats-grid">
                             <div class="stat-item">
                                 <div class="stat-number high" id="dev-high">0</div>
-                                <div class="stat-label">高危</div>
+                                <div class="stat-label">High</div>
                             </div>
                             <div class="stat-item">
                                 <div class="stat-number medium" id="dev-medium">0</div>
-                                <div class="stat-label">中危</div>
+                                <div class="stat-label">Medium</div>
                             </div>
                             <div class="stat-item">
                                 <div class="stat-number low" id="dev-low">0</div>
-                                <div class="stat-label">低危</div>
+                                <div class="stat-label">Low</div>
                             </div>
                         </div>
-                        <!-- 扫描模式信息 -->
                         <div class="scan-mode-info" style="margin-top: 15px;">
                             <div class="info-item">
-                                <span class="info-label">扫描模式:</span>
+                                <span class="info-label">Scan Mode:</span>
                                 <span class="info-value" id="currentScanMode">-</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">后端状态:</span>
-                                <span class="info-value" id="backendStatusInfo">检查中...</span>
+                                <span class="info-label">Backend Status:</span>
+                                <span class="info-value" id="backendStatusInfo">Checking...</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 扫描器状态 -->
+            <!-- Scanner Status -->
             <div class="toggle-section">
                 <div class="toggle-header" id="toggleScanners">
-                    <span>🔍 扫描器状态</span>
+                    <span>🔍 Scanners</span>
                     <span class="arrow" id="scanners-arrow">▼</span>
                 </div>
                 <div class="toggle-content" id="scanners-content">
@@ -160,112 +149,107 @@
                         <div class="scanner-item">
                             <div class="scanner-icon">🛡️</div>
                             <div class="scanner-info">
-                                <div class="scanner-name">响应头扫描器</div>
-                                <div class="scanner-status">后端运行</div>
+                                <div class="scanner-name">Header Scanner</div>
+                                <div class="scanner-status">Backend Enabled</div>
                             </div>
                         </div>
                         <div class="scanner-item">
                             <div class="scanner-icon">⚡</div>
                             <div class="scanner-info">
-                                <div class="scanner-name">XSS检测器</div>
-                                <div class="scanner-status" id="xssStatus">后端运行</div>
+                                <div class="scanner-name">XSS Scanner</div>
+                                <div class="scanner-status" id="xssStatus">Backend Enabled</div>
                             </div>
                         </div>
                         <div class="scanner-item">
                             <div class="scanner-icon">💉</div>
                             <div class="scanner-info">
-                                <div class="scanner-name">SQL注入检测器</div>
-                                <div class="scanner-status" id="sqlStatus">后端运行</div>
+                                <div class="scanner-name">SQL Injection Scanner</div>
+                                <div class="scanner-status" id="sqlStatus">Backend Enabled</div>
                             </div>
                         </div>
                         <div class="scanner-item">
                             <div class="scanner-icon">🔒</div>
                             <div class="scanner-info">
-                                <div class="scanner-name">SSL检测器</div>
-                                <div class="scanner-status" id="sslStatus">后端运行</div>
+                                <div class="scanner-name">SSL Scanner</div>
+                                <div class="scanner-status" id="sslStatus">Backend Enabled</div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 问题详情 -->
+            <!-- Issue Details -->
             <div class="toggle-section">
                 <div class="toggle-header" id="toggleIssues">
-                    <span>🔍 问题详情</span>
+                    <span>🔍 Issues</span>
                     <span class="arrow" id="issues-arrow">▼</span>
                 </div>
                 <div class="toggle-content active" id="issues-content">
-                    <div class="issues-section" id="issuesList">
-                        <!-- 问题列表将在这里动态生成 -->
-                    </div>
+                    <div class="issues-section" id="issuesList"></div>
                 </div>
             </div>
 
-            <!-- 响应头详情 -->
+            <!-- Header Details -->
             <div class="toggle-section">
                 <div class="toggle-header" id="toggleHeaders">
-                    <span>📋 响应头详情</span>
+                    <span>📋 Response Headers</span>
                     <span class="arrow" id="headers-arrow">▼</span>
                 </div>
                 <div class="toggle-content" id="headers-content">
-                    <div class="header-list" id="headersList">
-                        <!-- 响应头列表将在这里动态生成 -->
-                    </div>
+                    <div class="header-list" id="headersList"></div>
                 </div>
             </div>
 
-            <!-- 高级功能 -->
+            <!-- Advanced -->
             <div class="toggle-section">
                 <div class="toggle-header" id="toggleAdvanced">
-                    <span>⚙️ 高级功能</span>
+                    <span>⚙️ Advanced</span>
                     <span class="arrow" id="advanced-arrow">▼</span>
                 </div>
                 <div class="toggle-content" id="advanced-content">
                     <div class="advanced-controls">
                         <div class="control-group">
-                            <label class="control-label">扫描模式:</label>
+                            <label class="control-label">Scan Mode:</label>
                             <button class="btn btn-secondary btn-small" id="advancedScanModeBtn">
-                                <span id="advancedModeText">后端扫描</span>
+                                <span id="advancedModeText">Backend</span>
                             </button>
                         </div>
                         <div class="control-group">
-                            <label class="control-label">后端服务:</label>
+                            <label class="control-label">Backend:</label>
                             <button class="btn btn-secondary btn-small" id="advancedBackendBtn">
-                                <span id="advancedBackendText">检查状态</span>
+                                <span id="advancedBackendText">Check</span>
                             </button>
                         </div>
                         <div class="control-group">
-                            <label class="control-label">详细扫描:</label>
+                            <label class="control-label">Full Scan:</label>
                             <button class="btn btn-primary btn-small" id="advancedDetailedBtn">
-                                <span>🔍</span> 启动全面扫描
+                                <span>🔍</span> Start Full Scan
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 操作按钮 -->
+            <!-- Footer Buttons -->
             <div class="buttons">
                 <button class="btn btn-primary" id="exportBtn">
-                    <span>📄</span> 导出报告
+                    <span>📄</span> Export Report
                 </button>
                 <button class="btn btn-secondary" id="devRefreshBtn">
-                    <span>🔄</span> 重新检测
+                    <span>🔄</span> Rescan
                 </button>
             </div>
         </div>
     </div>
 
     <div class="footer">
-        <div>HeaderSense v2.0 - 让网页更安全</div>
+        <div>HeaderSense v2.0 - Making the Web Safer</div>
         <div style="font-size: 10px; margin-top: 4px; opacity: 0.8;">
-            增强版 | 本地+云端混合扫描
+            Enhanced Edition | Local + Cloud Hybrid Scanning
         </div>
     </div>
 </div>
 
-<!-- 加载JavaScript -->
 <script src="popup.js" type="module"></script>
 </body>
 </html>

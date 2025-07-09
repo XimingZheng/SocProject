@@ -3,56 +3,56 @@ export default class HeaderAnalyzer {
         this.securityHeaders = {
             'x-content-type-options': {
                 name: 'X-Content-Type-Options',
-                description: '防止MIME类型嗅探攻击',
+                description: 'Prevent MIME type sniffing attacks',
                 recommendedValue: 'nosniff',
                 riskLevel: 'medium',
-                explanation: '此头部防止浏览器对响应内容进行MIME类型猜测，避免恶意内容被执行',
-                fixSuggestion: '在服务器响应中添加 X-Content-Type-Options: nosniff',
+                explanation: 'This header prevents browsers from guessing the MIME type, reducing the risk of executing malicious content.',
+                fixSuggestion: 'Add X-Content-Type-Options: nosniff to the server response.',
                 references: ['https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options']
             },
             'x-frame-options': {
                 name: 'X-Frame-Options',
-                description: '防止点击劫持(Clickjacking)攻击',
+                description: 'Prevent Clickjacking attacks',
                 recommendedValue: ['DENY', 'SAMEORIGIN'],
                 riskLevel: 'high',
-                explanation: '此头部防止页面被嵌入到iframe中，避免点击劫持攻击',
-                fixSuggestion: '设置 X-Frame-Options: DENY 或 X-Frame-Options: SAMEORIGIN',
+                explanation: 'This header prevents embedding the page in an iframe to mitigate clickjacking.',
+                fixSuggestion: 'Set X-Frame-Options to DENY or SAMEORIGIN.',
                 references: ['https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options']
             },
             'content-security-policy': {
                 name: 'Content-Security-Policy',
-                description: '防止XSS和代码注入攻击',
+                description: 'Prevent XSS and code injection attacks',
                 recommendedValue: null,
                 riskLevel: 'high',
-                explanation: '此头部定义了页面可以加载的资源，有效防止XSS攻击',
-                fixSuggestion: '配置适当的CSP策略，例如：default-src \'self\'',
+                explanation: 'This header defines the resources the page can load to mitigate XSS attacks.',
+                fixSuggestion: '配置适当的CSP策略, 例如：default-src \'self\'',
                 references: ['https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP']
             },
             'strict-transport-security': {
                 name: 'Strict-Transport-Security',
-                description: '强制HTTPS连接',
+                description: 'Enforce HTTPS connections',
                 recommendedValue: null,
                 riskLevel: 'medium',
-                explanation: '此头部强制浏览器使用HTTPS连接，防止中间人攻击',
-                fixSuggestion: '设置 Strict-Transport-Security: max-age=31536000; includeSubDomains',
+                explanation: 'This header enforces HTTPS and prevents man-in-the-middle attacks.',
+                fixSuggestion: 'Set Strict-Transport-Security: max-age=31536000; includeSubDomains',
                 references: ['https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security']
             },
             'x-xss-protection': {
                 name: 'X-XSS-Protection',
-                description: '启用浏览器XSS防护',
+                description: 'Enable browser XSS protection',
                 recommendedValue: '1; mode=block',
                 riskLevel: 'low',
-                explanation: '此头部启用浏览器的XSS过滤器（已被CSP取代，但仍有价值）',
-                fixSuggestion: '设置 X-XSS-Protection: 1; mode=block',
+                explanation: 'This header enables the browser XSS filter (deprecated in favor of CSP but still useful).',
+                fixSuggestion: 'Set X-XSS-Protection: 1; mode=block',
                 references: ['https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection']
             },
             'referrer-policy': {
                 name: 'Referrer-Policy',
-                description: '控制Referrer信息泄露',
+                description: 'Control referrer information leakage',
                 recommendedValue: ['strict-origin-when-cross-origin', 'no-referrer'],
                 riskLevel: 'low',
-                explanation: '此头部控制浏览器发送referrer信息的策略，防止信息泄露',
-                fixSuggestion: '设置 Referrer-Policy: strict-origin-when-cross-origin',
+                explanation: 'This header controls how much referrer information is sent to prevent leakage.',
+                fixSuggestion: 'Set Referrer-Policy: strict-origin-when-cross-origin',
                 references: ['https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy']
             }
         };
@@ -126,7 +126,7 @@ export default class HeaderAnalyzer {
             case 'x-content-type-options':
                 return {
                     isValid: headerValue.toLowerCase() === 'nosniff',
-                    issue: headerValue.toLowerCase() !== 'nosniff' ? '值应为 nosniff' : null
+                    issue: headerValue.toLowerCase() !== 'nosniff' ? 'Expected value is "nosniff"' : null
                 };
 
             case 'x-frame-options':
@@ -136,7 +136,7 @@ export default class HeaderAnalyzer {
                 );
                 return {
                     isValid: isValidFrameOption,
-                    issue: !isValidFrameOption ? '值应为 DENY 或 SAMEORIGIN' : null
+                    issue: !isValidFrameOption ? 'Expected value is DENY or SAMEORIGIN' : null
                 };
 
             case 'content-security-policy':
@@ -147,14 +147,14 @@ export default class HeaderAnalyzer {
                 if (!hasDefaultSrc) {
                     return {
                         isValid: false,
-                        issue: '缺少 default-src 指令'
+                        issue: 'Missing default-src directive'
                     };
                 }
 
                 if (hasUnsafeInline || hasUnsafeEval) {
                     return {
                         isValid: false,
-                        issue: '存在不安全的 unsafe-inline 或 unsafe-eval 指令'
+                        issue: 'Unsafe directive present: unsafe-inline or unsafe-eval'
                     };
                 }
 
@@ -165,7 +165,7 @@ export default class HeaderAnalyzer {
                 if (!hasMaxAge) {
                     return {
                         isValid: false,
-                        issue: '缺少 max-age 指令'
+                        issue: 'Missing max-age directive'
                     };
                 }
 
@@ -173,7 +173,7 @@ export default class HeaderAnalyzer {
                 if (maxAge < 31536000) {
                     return {
                         isValid: false,
-                        issue: 'max-age 值太小，建议至少设置为 31536000 (1年)'
+                        issue: 'max-age value too small, recommended at least 31536000 (1 year)'
                     };
                 }
 
@@ -183,7 +183,7 @@ export default class HeaderAnalyzer {
                 const validXSSProtection = ['1', '1; mode=block'];
                 return {
                     isValid: validXSSProtection.includes(headerValue),
-                    issue: !validXSSProtection.includes(headerValue) ? '推荐设置为 1; mode=block' : null
+                    issue: !validXSSProtection.includes(headerValue) ? 'Recommended setting is 1; mode=block' : null
                 };
 
             case 'referrer-policy':
@@ -199,7 +199,7 @@ export default class HeaderAnalyzer {
                 ];
                 return {
                     isValid: validReferrerPolicies.includes(headerValue),
-                    issue: !validReferrerPolicies.includes(headerValue) ? '无效的 Referrer-Policy 值' : null
+                    issue: !validReferrerPolicies.includes(headerValue) ? 'Invalid Referrer-Policy value' : null
                 };
 
             default:
@@ -231,7 +231,7 @@ export default class HeaderAnalyzer {
 
     generateSummary(issues, overallRiskLevel) {
         if (issues.length === 0) {
-            return '✅ 当前页面的安全响应头配置良好';
+            return '✅ Security headers are properly configured for this page';
         }
 
         const highRiskCount = issues.filter(issue => issue.riskLevel === 'high').length;
@@ -240,13 +240,13 @@ export default class HeaderAnalyzer {
 
         let summary = '';
         if (highRiskCount > 0) {
-            summary += `发现 ${highRiskCount} 个高风险问题`;
+            summary += `Detected ${highRiskCount}  high-risk issues`;
         }
         if (mediumRiskCount > 0) {
-            summary += `${summary ? '，' : '发现 '}${mediumRiskCount} 个中风险问题`;
+            summary += `${summary ? ', ' : 'Detected '}${mediumRiskCount}  medium-risk issues`;
         }
         if (lowRiskCount > 0) {
-            summary += `${summary ? '，' : '发现 '}${lowRiskCount} 个低风险问题`;
+            summary += `${summary ? ', ' : 'Detected '}${lowRiskCount}  low-risk issues`;
         }
 
         return summary;

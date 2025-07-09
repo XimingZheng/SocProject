@@ -4,56 +4,56 @@ from datetime import datetime
 from typing import Dict, List, Any
 
 class HeaderScanner(BaseScanner):
-    """HTTP响应头安全扫描器"""
+    """HTTP Response Header Security Scanner"""
     
     def __init__(self):
         super().__init__("Header Scanner")
         self.security_headers = {
             'x-content-type-options': {
                 'name': 'X-Content-Type-Options',
-                'description': '防止MIME类型嗅探攻击',
+                'description': 'Prevent MIME type sniffing attacks',
                 'recommended_value': 'nosniff',
                 'risk_level': 'medium',
-                'explanation': '此头部防止浏览器对响应内容进行MIME类型猜测，避免恶意内容被执行',
-                'fix_suggestion': '在服务器响应中添加 X-Content-Type-Options: nosniff'
+                'explanation': 'This header prevents browsers from guessing MIME types to avoid executing malicious content.',
+                'fix_suggestion': 'Add X-Content-Type-Options: nosniff to the server response.'
             },
             'x-frame-options': {
                 'name': 'X-Frame-Options',
-                'description': '防止点击劫持(Clickjacking)攻击',
+                'description': 'Prevent Clickjacking attacks',
                 'recommended_value': ['DENY', 'SAMEORIGIN'],
                 'risk_level': 'high',
-                'explanation': '此头部防止页面被嵌入到iframe中，避免点击劫持攻击',
-                'fix_suggestion': '设置 X-Frame-Options: DENY 或 X-Frame-Options: SAMEORIGIN'
+                'explanation': 'This header prevents the page from being embedded in iframes to avoid Clickjacking.',
+                'fix_suggestion': 'Set X-Frame-Options to DENY or SAMEORIGIN.'
             },
             'content-security-policy': {
                 'name': 'Content-Security-Policy',
-                'description': '防止XSS和代码注入攻击',
+                'description': 'Prevent XSS and code injection attacks',
                 'risk_level': 'high',
-                'explanation': '此头部定义了页面可以加载的资源，有效防止XSS攻击',
-                'fix_suggestion': '配置适当的CSP策略，例如：default-src \'self\''
+                'explanation': 'This header defines the resources allowed on the page to mitigate XSS.',
+                'fix_suggestion': 'Configure a proper CSP policy, e.g., default-src \'self\''
             },
             'strict-transport-security': {
                 'name': 'Strict-Transport-Security',
-                'description': '强制HTTPS连接',
+                'description': 'Enforce HTTPS connection',
                 'risk_level': 'medium',
-                'explanation': '此头部强制浏览器使用HTTPS连接，防止中间人攻击',
-                'fix_suggestion': '设置 Strict-Transport-Security: max-age=31536000; includeSubDomains'
+                'explanation': 'This header forces browsers to use HTTPS to prevent man-in-the-middle attacks.',
+                'fix_suggestion': 'Set Strict-Transport-Security: max-age=31536000; includeSubDomains.'
             },
             'x-xss-protection': {
                 'name': 'X-XSS-Protection',
-                'description': '启用浏览器XSS防护',
+                'description': 'Enable browser XSS protection',
                 'recommended_value': '1; mode=block',
                 'risk_level': 'low',
-                'explanation': '此头部启用浏览器的XSS过滤器（已被CSP取代，但仍有价值）',
-                'fix_suggestion': '设置 X-XSS-Protection: 1; mode=block'
+                'explanation': 'This header enables browser XSS filter (deprecated but still useful).',
+                'fix_suggestion': 'Set X-XSS-Protection: 1; mode=block'
             },
             'referrer-policy': {
                 'name': 'Referrer-Policy',
-                'description': '控制Referrer信息泄露',
+                'description': 'Control referrer information leakage',
                 'recommended_value': ['strict-origin-when-cross-origin', 'no-referrer'],
                 'risk_level': 'low',
-                'explanation': '此头部控制浏览器发送referrer信息的策略，防止信息泄露',
-                'fix_suggestion': '设置 Referrer-Policy: strict-origin-when-cross-origin'
+                'explanation': 'This header controls how much referrer information is sent to reduce information leakage.',
+                'fix_suggestion': 'Set Referrer-Policy: strict-origin-when-cross-origin.'
             }
         }
     
@@ -69,9 +69,9 @@ class HeaderScanner(BaseScanner):
                     scanner_name=self.name,
                     vulnerability_type='Missing Security Header',
                     risk_level=header_config['risk_level'],
-                    title=f'缺少 {header_config["name"]} 响应头',
+                    title=f'Missing {header_config["name"]} header',
                     description=header_config['description'],
-                    evidence=f'响应头中未找到 {header_key}',
+                    evidence=f'{header_key} header not found in response',
                     fix_suggestion=header_config['fix_suggestion'],
                     url=url,
                     timestamp=datetime.now().isoformat(),
@@ -79,14 +79,14 @@ class HeaderScanner(BaseScanner):
                 )
                 results.append(result)
             else:
-                # 验证头部值是否正确配置
+                # Validate whether the header value is correctly configured
                 validation_result = self._validate_header_value(header_key, header_value, header_config)
                 if not validation_result['is_valid']:
                     result = ScanResult(
                         scanner_name=self.name,
                         vulnerability_type='Misconfigured Security Header',
                         risk_level=header_config['risk_level'],
-                        title=f'{header_config["name"]} 配置不当',
+                        title=f'{header_config["name"]} is misconfigured',
                         description=header_config['description'],
                         evidence=f'{header_key}: {header_value} - {validation_result["issue"]}',
                         fix_suggestion=header_config['fix_suggestion'],
@@ -99,27 +99,27 @@ class HeaderScanner(BaseScanner):
         return results
     
     def _validate_header_value(self, header_key: str, header_value: str, header_config: Dict) -> Dict[str, Any]:
-        """验证响应头值"""
+        """Validate response header value"""
         if header_key == 'x-content-type-options':
             return {
                 'is_valid': header_value.lower() == 'nosniff',
-                'issue': '值应为 nosniff' if header_value.lower() != 'nosniff' else None
+                'issue': 'Expected value is "nosniff"' if header_value.lower() != 'nosniff' else None
             }
         elif header_key == 'x-frame-options':
             valid_options = ['DENY', 'SAMEORIGIN']
             is_valid = any(option in header_value.upper() for option in valid_options)
             return {
                 'is_valid': is_valid,
-                'issue': '值应为 DENY 或 SAMEORIGIN' if not is_valid else None
+                'issue': 'Expected value is DENY or SAMEORIGIN' if not is_valid else None
             }
         elif header_key == 'content-security-policy':
             has_default_src = 'default-src' in header_value
             has_unsafe = "'unsafe-inline'" in header_value or "'unsafe-eval'" in header_value
             
             if not has_default_src:
-                return {'is_valid': False, 'issue': '缺少 default-src 指令'}
+                return {'is_valid': False, 'issue': 'Missing default-src directive'}
             if has_unsafe:
-                return {'is_valid': False, 'issue': '存在不安全的 unsafe-inline 或 unsafe-eval 指令'}
+                return {'is_valid': False, 'issue': 'Unsafe directive present: unsafe-inline or unsafe-eval'}
             return {'is_valid': True, 'issue': None}
         
         return {'is_valid': True, 'issue': None}

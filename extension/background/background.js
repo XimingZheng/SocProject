@@ -557,3 +557,42 @@ checkBackendHealth().then(isHealthy => {
         setScanMode(SCAN_MODES.HYBRID);
     }
 });
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'explainWithAI') {
+        callAI(request.prompt)
+            .then((text) => sendResponse({ success: true, text }))
+            .catch((err) => sendResponse({ success: false, error: err.message }));
+        return true;
+    }
+});
+
+async function callAI(prompt) {
+    const apiKey = 'AIzaSyDam_cmtdegN0Vo9o34Z-nsSFZ5sOWass4'; // 替换成你自己的
+
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            contents: [
+                {
+                    parts: [
+                        { text: prompt }
+                    ]
+                }
+            ]
+        })
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gemini 请求失败: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || '无结果';
+}
+
