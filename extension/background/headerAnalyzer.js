@@ -63,10 +63,33 @@ export default class HeaderAnalyzer {
         let totalScore = 0;
         let maxScore = 0;
 
+        // 添加调试信息
+        console.log('[HeaderAnalyzer] 开始扫描，接收到的头部:', headers);
+        console.log('[HeaderAnalyzer] 头部键名:', Object.keys(headers));
+
+        // 确保所有头部键名都是小写
+        const normalizedHeaders = {};
+        Object.keys(headers).forEach(key => {
+            normalizedHeaders[key.toLowerCase()] = headers[key];
+        });
+
+        console.log('[HeaderAnalyzer] 标准化后的头部:', normalizedHeaders);
+
         for (const [headerKey, headerConfig] of Object.entries(this.securityHeaders)) {
             maxScore += this.getRiskScore(headerConfig.riskLevel);
-            const headerValue = headers[headerKey];
-            const issue = this.analyzeHeader(headerKey, headerValue, headerConfig);
+            
+            // 使用标准化的头部
+            const headerValue = normalizedHeaders[headerKey];
+            
+            // 添加调试信息
+            if (headerKey === 'content-security-policy') {
+                console.log('[HeaderAnalyzer] CSP 检查:');
+                console.log('  - 查找键名:', headerKey);
+                console.log('  - 找到值:', headerValue);
+                console.log('  - 是否来自 meta:', normalizedHeaders['_meta_csp']);
+            }
+            
+            const issue = this.analyzeHeader(headerKey, headerValue, headerConfig, normalizedHeaders);
 
             if (issue) {
                 issues.push(issue);
@@ -78,19 +101,47 @@ export default class HeaderAnalyzer {
         const scorePercentage = maxScore > 0 ? totalScore / maxScore : 0;
         const overallRiskLevel = this.calculateOverallRisk(scorePercentage, issues);
 
-        console.log('percentage:', scorePercentage, ';riskLevel:', overallRiskLevel);
+        console.log('[HeaderAnalyzer] 扫描结果:');
+        console.log('  - 评分百分比:', scorePercentage);
+        console.log('  - 风险等级:', overallRiskLevel);
+        console.log('  - 问题数量:', issues.length);
+        console.log('  - 问题详情:', issues.map(i => i.header));
 
         return {
             riskLevel: overallRiskLevel,
             score: Math.round(scorePercentage * 100),
             issues: issues,
             summary: this.generateSummary(issues, overallRiskLevel),
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            debug: {
+                originalHeaders: headers,
+                normalizedHeaders: normalizedHeaders,
+                scoreCalculation: {
+                    totalScore,
+                    maxScore,
+                    scorePercentage
+                }
+            }
         };
     }
 
-    analyzeHeader(headerKey, headerValue, headerConfig) {
+    analyzeHeader(headerKey, headerValue, headerConfig, allHeaders) {
         if (!headerValue) {
+            // 特殊处理 CSP：检查是否通过 meta 标签设置
+            if (headerKey === 'content-security-policy' && allHeaders['_meta_csp']) {
+                return {
+                    type: 'info',
+                    header: headerConfig.name,
+                    description: headerConfig.description + ' (found in meta tag)',
+                    riskLevel: 'low', // 降低风险等级，因为通过 meta 标签设置了
+                    explanation: headerConfig.explanation + ' 注意：该CSP通过HTML meta标签设置，建议在HTTP头部设置以获得更好的安全性。',
+                    fixSuggestion: 'CSP已通过meta标签设置，建议迁移到HTTP响应头以获得更好的安全性和兼容性。',
+                    references: headerConfig.references,
+                    currentValue: allHeaders['content-security-policy'],
+                    source: 'meta'
+                };
+            }
+
             return {
                 type: 'missing',
                 header: headerConfig.name,
@@ -140,25 +191,7 @@ export default class HeaderAnalyzer {
                 };
 
             case 'content-security-policy':
-                const hasDefaultSrc = headerValue.includes('default-src');
-                const hasUnsafeInline = headerValue.includes("'unsafe-inline'");
-                const hasUnsafeEval = headerValue.includes("'unsafe-eval'");
-
-                if (!hasDefaultSrc) {
-                    return {
-                        isValid: false,
-                        issue: 'Missing default-src directive'
-                    };
-                }
-
-                if (hasUnsafeInline || hasUnsafeEval) {
-                    return {
-                        isValid: false,
-                        issue: 'Unsafe directive present: unsafe-inline or unsafe-eval'
-                    };
-                }
-
-                return { isValid: true };
+                return this.validateCSP(headerValue);
 
             case 'strict-transport-security':
                 const hasMaxAge = /max-age=(\d+)/.exec(headerValue);
@@ -207,6 +240,74 @@ export default class HeaderAnalyzer {
         }
     }
 
+    validateCSP(cspValue) {
+        console.log('[HeaderAnalyzer] 验证 CSP 值:', cspValue);
+        
+        if (!cspValue || cspValue.trim() === '') {
+            return {
+                isValid: false,
+                issue: 'CSP value is empty'
+            };
+        }
+
+        const cspLower = cspValue.toLowerCase();
+        const directives = cspValue.split(';').map(d => d.trim()).filter(d => d);
+        
+        console.log('[HeaderAnalyzer] CSP 指令:', directives);
+
+        // 检查关键指令
+        const hasDefaultSrc = directives.some(d => d.startsWith('default-src'));
+        const hasScriptSrc = directives.some(d => d.startsWith('script-src'));
+        const hasObjectSrc = directives.some(d => d.startsWith('object-src'));
+        
+        // 检查不安全的指令
+        const hasUnsafeInline = cspLower.includes("'unsafe-inline'");
+        const hasUnsafeEval = cspLower.includes("'unsafe-eval'");
+        const hasWildcard = cspLower.includes('*') && !cspLower.includes("'self'");
+
+        // 评估 CSP 强度
+        let issues = [];
+        
+        if (!hasDefaultSrc && !hasScriptSrc) {
+            issues.push('Missing default-src or script-src directive');
+        }
+        
+        if (hasUnsafeInline) {
+            issues.push("Contains 'unsafe-inline' directive, which reduces security");
+        }
+        
+        if (hasUnsafeEval) {
+            issues.push("Contains 'unsafe-eval' directive, which reduces security");
+        }
+        
+        if (hasWildcard) {
+            issues.push("Contains wildcard (*) without proper restrictions");
+        }
+
+        // 检查常见的弱 CSP 配置
+        if (cspLower.includes('unsafe-inline') && cspLower.includes('unsafe-eval')) {
+            issues.push('CSP contains both unsafe-inline and unsafe-eval, providing minimal protection');
+        }
+
+        console.log('[HeaderAnalyzer] CSP 验证结果:', {
+            hasDefaultSrc,
+            hasScriptSrc,
+            hasUnsafeInline,
+            hasUnsafeEval,
+            hasWildcard,
+            issues
+        });
+
+        if (issues.length > 0) {
+            return {
+                isValid: false,
+                issue: issues.join('; ')
+            };
+        }
+
+        return { isValid: true };
+    }
+
     getRiskScore(riskLevel) {
         switch (riskLevel) {
             case 'high': return 10;
@@ -220,9 +321,10 @@ export default class HeaderAnalyzer {
         const highRiskIssues = issues.filter(issue => issue.riskLevel === 'high').length;
         const mediumRiskIssues = issues.filter(issue => issue.riskLevel === 'medium').length;
 
-        if (highRiskIssues >= 2 || scorePercentage < 0.4) {
+        // 更严格的风险评估
+        if (highRiskIssues >= 2 || scorePercentage < 0.3) {
             return 'high';
-        } else if (highRiskIssues >= 1 || mediumRiskIssues >= 2 || scorePercentage < 0.7) {
+        } else if (highRiskIssues >= 1 || mediumRiskIssues >= 2 || scorePercentage < 0.6) {
             return 'medium';
         } else {
             return 'low';
@@ -240,13 +342,13 @@ export default class HeaderAnalyzer {
 
         let summary = '';
         if (highRiskCount > 0) {
-            summary += `Detected ${highRiskCount}  high-risk issues`;
+            summary += `Detected ${highRiskCount} high-risk issues`;
         }
         if (mediumRiskCount > 0) {
-            summary += `${summary ? ', ' : 'Detected '}${mediumRiskCount}  medium-risk issues`;
+            summary += `${summary ? ', ' : 'Detected '}${mediumRiskCount} medium-risk issues`;
         }
         if (lowRiskCount > 0) {
-            summary += `${summary ? ', ' : 'Detected '}${lowRiskCount}  low-risk issues`;
+            summary += `${summary ? ', ' : 'Detected '}${lowRiskCount} low-risk issues`;
         }
 
         return summary;

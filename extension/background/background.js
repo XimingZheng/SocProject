@@ -1,4 +1,4 @@
-// enhanced_background.js - 与Flask后端通信的增强版background脚本
+// 改进的 background.js - 修复 Header 检测问题
 
 import HeaderAnalyzer from './headerAnalyzer.js';
 import ScannerManager from './scannerManager.js';
@@ -14,40 +14,50 @@ const API_ENDPOINTS = {
 
 // 扫描模式配置
 const SCAN_MODES = {
-    BACKEND: 'backend',  // 后端扫描（优先模式）
-    HYBRID: 'hybrid'     // 混合模式（本地+后端）
+    BACKEND: 'backend',
+    HYBRID: 'hybrid'
 };
 
-// 当前扫描模式（优先使用后端）
 let currentScanMode = SCAN_MODES.BACKEND;
-
-// 本地扫描器管理器
 const scannerManager = new ScannerManager();
 scannerManager.register('headers', new HeaderAnalyzer());
 
 // 标签页安全状态存储
 const tabSecurityStates = new Map();
-
-// 后端任务状态存储
 const backendTasks = new Map();
 
-// 监听网页请求，获取响应头
+// 改进的响应头监听器
 chrome.webRequest.onHeadersReceived.addListener(
     async (details) => {
         try {
             if (details.type !== 'main_frame') return;
 
+            // 更严格的头部处理
             const headers = {};
+            const rawHeaders = {};
+            
             if (details.responseHeaders) {
                 details.responseHeaders.forEach(header => {
-                    headers[header.name.toLowerCase()] = header.value;
+                    const name = header.name.toLowerCase();
+                    const value = header.value;
+                    
+                    // 存储小写键名的版本
+                    headers[name] = value;
+                    // 同时存储原始大小写版本用于调试
+                    rawHeaders[header.name] = value;
                 });
             }
 
             console.log('[HeaderSense] 检测到页面请求:', details.url);
+            console.log('[HeaderSense] 响应头:', headers);
 
-            // 执行安全扫描
-            await performSecurityScan(details.tabId, details.url, headers);
+            // 立即执行基本扫描
+            await performSecurityScan(details.tabId, details.url, headers, rawHeaders);
+
+            // 延迟执行内容扫描以获取 meta 标签中的 CSP
+            setTimeout(() => {
+                performContentScan(details.tabId, details.url, headers);
+            }, 2000);
 
         } catch (error) {
             console.error('[HeaderSense] Background处理错误:', error);
@@ -60,7 +70,7 @@ chrome.webRequest.onHeadersReceived.addListener(
 /**
  * 执行安全扫描
  */
-async function performSecurityScan(tabId, url, headers) {
+async function performSecurityScan(tabId, url, headers, rawHeaders) {
     try {
         let scanResult;
 
@@ -81,15 +91,14 @@ async function performSecurityScan(tabId, url, headers) {
             timestamp: Date.now(),
             scanResult: scanResult,
             headers: headers,
+            rawHeaders: rawHeaders, // 保存原始头部用于调试
             scanMode: currentScanMode
         });
 
         console.log('[HeaderSense] 扫描完成:', tabId, scanResult.riskLevel);
-
-        // 更新扩展图标
         updateIcon(tabId, scanResult.riskLevel);
 
-        // 通知content script（如果存在高风险）
+        // 通知content script
         if (scanResult.riskLevel === 'high') {
             chrome.tabs.sendMessage(tabId, {
                 action: 'securityScanResult',
@@ -104,7 +113,6 @@ async function performSecurityScan(tabId, url, headers) {
     } catch (error) {
         console.error('[HeaderSense] 扫描失败:', error);
         
-        // 设置错误状态
         tabSecurityStates.set(tabId, {
             url: url,
             timestamp: Date.now(),
@@ -124,25 +132,81 @@ async function performSecurityScan(tabId, url, headers) {
 }
 
 /**
- * 本地扫描（原有方式）
+ * 执行内容扫描 - 检查 HTML 中的 CSP meta 标签
  */
-async function performLocalScan(headers) {
-    return await scannerManager.scan('headers', headers);
+async function performContentScan(tabId, url, headers) {
+    try {
+        // 获取页面内容
+        const results = await chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            function: extractMetaCSP
+        });
+
+        if (results && results[0] && results[0].result) {
+            const metaCSP = results[0].result;
+            
+            if (metaCSP) {
+                console.log('[HeaderSense] 发现 meta CSP:', metaCSP);
+                
+                // 更新头部信息，添加从 meta 标签中提取的 CSP
+                const updatedHeaders = { ...headers };
+                if (!updatedHeaders['content-security-policy']) {
+                    updatedHeaders['content-security-policy'] = metaCSP;
+                    updatedHeaders['_meta_csp'] = true; // 标记来源
+                }
+
+                // 重新扫描
+                await performSecurityScan(tabId, url, updatedHeaders, headers);
+            }
+        }
+    } catch (error) {
+        console.error('[HeaderSense] 内容扫描失败:', error);
+    }
 }
 
 /**
- * 后端扫描
+ * 在页面中执行的函数 - 提取 meta 标签中的 CSP
+ */
+function extractMetaCSP() {
+    const metaTags = document.querySelectorAll('meta[http-equiv="Content-Security-Policy"], meta[http-equiv="content-security-policy"]');
+    
+    if (metaTags.length > 0) {
+        return metaTags[0].getAttribute('content');
+    }
+    
+    return null;
+}
+
+/**
+ * 改进的本地扫描
+ */
+async function performLocalScan(headers) {
+    // 添加调试日志
+    console.log('[HeaderSense] 执行本地扫描，头部:', Object.keys(headers));
+    
+    const result = await scannerManager.scan('headers', headers);
+    
+    // 添加调试信息
+    result.debug = {
+        headersFound: Object.keys(headers),
+        cspFound: !!headers['content-security-policy'],
+        cspValue: headers['content-security-policy'] || null
+    };
+    
+    return result;
+}
+
+/**
+ * 增强的后端扫描
  */
 async function performBackendScan(url, headers) {
     try {
-        // 检查后端健康状态
         const isBackendHealthy = await checkBackendHealth();
         if (!isBackendHealthy) {
             console.warn('[HeaderSense] 后端不可用，回退到本地扫描');
             return await performLocalScan(headers);
         }
 
-        // 启动后端扫描任务
         const taskResponse = await fetch(API_ENDPOINTS.SCAN, {
             method: 'POST',
             headers: {
@@ -162,8 +226,6 @@ async function performBackendScan(url, headers) {
         const taskId = taskData.task_id;
 
         console.log('[HeaderSense] 后端扫描任务已启动:', taskId);
-
-        // 轮询任务状态
         return await pollTaskStatus(taskId);
 
     } catch (error) {
@@ -173,26 +235,26 @@ async function performBackendScan(url, headers) {
 }
 
 /**
- * 混合扫描模式（推荐）
+ * 混合扫描模式
  */
 async function performHybridScan(url, headers) {
     try {
-        // 1. 先执行快速本地扫描
+        // 先执行快速本地扫描
         const localResult = await performLocalScan(headers);
         console.log('[HeaderSense] 本地扫描完成');
 
-        // 2. 同时启动后端详细扫描
+        // 同时启动后端详细扫描
         const backendPromise = performQuickBackendScan(url, headers);
 
-        // 3. 等待后端扫描或超时
+        // 等待后端扫描或超时
         const backendResult = await Promise.race([
             backendPromise,
-            new Promise((resolve) => setTimeout(() => resolve(null), 5000)) // 5秒超时
+            new Promise((resolve) => setTimeout(() => resolve(null), 5000))
         ]);
 
         if (backendResult) {
             console.log('[HeaderSense] 后端扫描完成，合并结果');
-            return mergeeScanResults(localResult, backendResult);
+            return mergeScanResults(localResult, backendResult);
         } else {
             console.log('[HeaderSense] 后端扫描超时，使用本地结果');
             return localResult;
@@ -205,7 +267,7 @@ async function performHybridScan(url, headers) {
 }
 
 /**
- * 快速后端扫描（仅响应头）
+ * 快速后端扫描
  */
 async function performQuickBackendScan(url, headers) {
     try {
@@ -226,7 +288,6 @@ async function performQuickBackendScan(url, headers) {
 
         const result = await response.json();
         
-        // 转换后端结果格式为前端格式
         return {
             riskLevel: result.risk_level,
             score: result.security_score,
@@ -245,17 +306,14 @@ async function performQuickBackendScan(url, headers) {
 /**
  * 合并扫描结果
  */
-function mergeeScanResults(localResult, backendResult) {
-    // 取更严重的风险等级
+function mergeScanResults(localResult, backendResult) {
     const riskLevels = ['low', 'medium', 'high'];
     const localRiskIndex = riskLevels.indexOf(localResult.riskLevel);
     const backendRiskIndex = riskLevels.indexOf(backendResult.riskLevel);
     const finalRiskLevel = riskLevels[Math.max(localRiskIndex, backendRiskIndex)];
 
-    // 合并问题列表
     const allIssues = [...(localResult.issues || [])];
     
-    // 添加后端发现的新问题
     if (backendResult.issues) {
         backendResult.issues.forEach(backendIssue => {
             const exists = allIssues.some(localIssue => 
@@ -283,13 +341,15 @@ function mergeeScanResults(localResult, backendResult) {
         timestamp: Date.now(),
         scanMode: 'hybrid',
         localResult: localResult,
-        backendResult: backendResult
+        backendResult: backendResult,
+        debug: {
+            ...localResult.debug,
+            backendCSP: backendResult.issues?.some(i => i.vulnerability_type?.includes('CSP'))
+        }
     };
 }
 
-/**
- * 轮询任务状态
- */
+// 其他函数保持不变...
 async function pollTaskStatus(taskId, maxAttempts = 30) {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
@@ -308,7 +368,6 @@ async function pollTaskStatus(taskId, maxAttempts = 30) {
                 throw new Error(`后端扫描失败: ${statusData.error}`);
             }
 
-            // 等待1秒后重试
             await new Promise(resolve => setTimeout(resolve, 1000));
 
         } catch (error) {
@@ -322,9 +381,6 @@ async function pollTaskStatus(taskId, maxAttempts = 30) {
     throw new Error('后端扫描任务超时');
 }
 
-/**
- * 转换后端结果格式
- */
 function convertBackendResult(backendResult) {
     return {
         riskLevel: backendResult.overall_risk_level,
@@ -347,9 +403,6 @@ function convertBackendResult(backendResult) {
     };
 }
 
-/**
- * 检查后端健康状态
- */
 async function checkBackendHealth() {
     try {
         const response = await fetch(API_ENDPOINTS.HEALTH, {
@@ -363,22 +416,14 @@ async function checkBackendHealth() {
     }
 }
 
-/**
- * 切换扫描模式
- */
 function setScanMode(mode) {
     if (Object.values(SCAN_MODES).includes(mode)) {
         currentScanMode = mode;
         console.log('[HeaderSense] 扫描模式已切换为:', mode);
-        
-        // 保存到storage
         chrome.storage.local.set({ scanMode: mode });
     }
 }
 
-/**
- * 从storage加载扫描模式
- */
 chrome.storage.local.get(['scanMode'], (result) => {
     if (result.scanMode && Object.values(SCAN_MODES).includes(result.scanMode)) {
         currentScanMode = result.scanMode;
@@ -388,7 +433,6 @@ chrome.storage.local.get(['scanMode'], (result) => {
 
 // 监听来自popup的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    // content script 准备就绪
     if (request.action === 'contentScriptReady' && sender.tab?.id != null) {
         const tabId = sender.tab.id;
         const state = tabSecurityStates.get(tabId);
@@ -405,31 +449,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
     }
 
-    // popup 请求获取安全状态
     if (request.action === 'getSecurityState') {
         const state = tabSecurityStates.get(request.tabId) || null;
         sendResponse(state);
         return true;
     }
 
-    // popup 请求切换扫描模式
     if (request.action === 'setScanMode') {
         setScanMode(request.mode);
         sendResponse({ success: true, mode: currentScanMode });
         return true;
     }
 
-    // popup 请求获取当前扫描模式
     if (request.action === 'getScanMode') {
         sendResponse({ mode: currentScanMode });
         return true;
     }
 
-    // popup 请求重新扫描
     if (request.action === 'rescan') {
         chrome.tabs.get(request.tabId, (tab) => {
             if (tab && tab.url) {
-                // 重新请求页面以触发扫描
                 chrome.tabs.reload(request.tabId);
                 sendResponse({ success: true });
             } else {
@@ -439,13 +478,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
-    // 启动详细后端扫描
     if (request.action === 'startDetailedScan') {
         const state = tabSecurityStates.get(request.tabId);
         if (state) {
             performBackendScan(state.url, state.headers)
                 .then(result => {
-                    // 更新状态
                     state.scanResult = result;
                     state.scanMode = 'backend_detailed';
                     tabSecurityStates.set(request.tabId, state);
@@ -461,7 +498,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
-    // 检查后端状态
     if (request.action === 'checkBackendStatus') {
         checkBackendHealth()
             .then(isHealthy => {
@@ -481,12 +517,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
         return true;
     }
+
+    if (request.action === 'explainWithAI') {
+        callAI(request.prompt)
+            .then((text) => sendResponse({ success: true, text }))
+            .catch((err) => sendResponse({ success: false, error: err.message }));
+        return true;
+    }
 });
 
 // 监听标签页更新
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (changeInfo.status === 'loading') {
-        // 清理旧的扫描结果
         if (tabSecurityStates.has(tabId)) {
             tabSecurityStates.delete(tabId);
             updateIcon(tabId, 'unknown');
@@ -494,14 +536,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     }
 });
 
-// 监听标签页关闭
 chrome.tabs.onRemoved.addListener((tabId) => {
     tabSecurityStates.delete(tabId);
 });
 
-/**
- * 更新扩展图标
- */
 function updateIcon(tabId, riskLevel) {
     const iconPaths = {
         high: {
@@ -544,29 +582,6 @@ function updateIcon(tabId, riskLevel) {
     });
 }
 
-// 启动时的初始化
-console.log('[HeaderSense] Enhanced Background Script 已加载');
-console.log('[HeaderSense] 后端URL:', BACKEND_URL);
-console.log('[HeaderSense] 当前扫描模式:', currentScanMode);
-
-// 检查后端连接状态
-checkBackendHealth().then(isHealthy => {
-    console.log('[HeaderSense] 后端状态:', isHealthy ? '健康' : '不可用');
-    if (!isHealthy) {
-        console.warn('[HeaderSense] 后端不可用，自动切换到混合模式');
-        setScanMode(SCAN_MODES.HYBRID);
-    }
-});
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'explainWithAI') {
-        callAI(request.prompt)
-            .then((text) => sendResponse({ success: true, text }))
-            .catch((err) => sendResponse({ success: false, error: err.message }));
-        return true;
-    }
-});
-
 async function callAI(prompt) {
     const apiKey = 'AIzaSyDam_cmtdegN0Vo9o34Z-nsSFZ5sOWass4';
 
@@ -596,3 +611,14 @@ async function callAI(prompt) {
     return data.candidates?.[0]?.content?.parts?.[0]?.text || '无结果';
 }
 
+console.log('[HeaderSense] Enhanced Background Script 已加载');
+console.log('[HeaderSense] 后端URL:', BACKEND_URL);
+console.log('[HeaderSense] 当前扫描模式:', currentScanMode);
+
+checkBackendHealth().then(isHealthy => {
+    console.log('[HeaderSense] 后端状态:', isHealthy ? '健康' : '不可用');
+    if (!isHealthy) {
+        console.warn('[HeaderSense] 后端不可用，自动切换到混合模式');
+        setScanMode(SCAN_MODES.HYBRID);
+    }
+});
