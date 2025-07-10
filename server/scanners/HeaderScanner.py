@@ -57,7 +57,7 @@ class HeaderScanner(BaseScanner):
             }
         }
     
-    async def scn(self, session: aiohttp.ClientSession, url: str, response_data: Dict[str, Any]) -> List[ScanResult]:
+    async def scan(self, session: aiohttp.ClientSession, url: str, response_data: Dict[str, Any]) -> List[ScanResult]:
         results = []
         headers = response_data.get('headers', {})
         
