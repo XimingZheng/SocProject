@@ -15,7 +15,7 @@ from scanners.SSLScanner import SSLScanner
 logger = logging.getLogger(__name__)
 
 class ThreadSafeScannerManager:
-    """线程安全的扫描器管理器"""
+    """线程安全的扫描器管理器 - 🔥 使用基于penalty的评分系统"""
     
     def __init__(self):
         self.scanners = []
@@ -31,7 +31,7 @@ class ThreadSafeScannerManager:
         ]
     
     async def scan_website(self, url: str, headers_data: Dict[str, Any] = None) -> Dict[str, Any]:
-        """扫描网站"""
+        """扫描网站 - 使用penalty-based评分"""
         logger.info(f"开始扫描网站: {url}")
         start_time = time.time()
         
@@ -88,8 +88,8 @@ class ThreadSafeScannerManager:
         
         scan_time = time.time() - start_time
         
-        # 生成扫描报告
-        report = self._generate_report(url, all_results, scan_time)
+        # 🔥 关键：使用penalty-based评分生成报告
+        report = self._generate_penalty_based_report(url, all_results, scan_time)
         logger.info(f"扫描完成，耗时 {scan_time:.2f} 秒，发现 {len(all_results)} 个问题")
         
         return report
@@ -119,25 +119,22 @@ class ThreadSafeScannerManager:
             logger.error(f"扫描器 {scanner.name} 执行失败: {e}")
             return []
     
-    def _generate_report(self, url: str, results: List[ScanResult], scan_time: float) -> Dict[str, Any]:
-        """生成扫描报告"""
+    def _generate_penalty_based_report(self, url: str, results: List[ScanResult], scan_time: float) -> Dict[str, Any]:
+        """🔥 关键：生成基于penalty的评分报告"""
+        print(f"[ScannerManager] 🔍 开始生成penalty-based报告")
+        
         # 按风险等级分类
         high_risk = [r for r in results if r.risk_level == 'high']
         medium_risk = [r for r in results if r.risk_level == 'medium']
         low_risk = [r for r in results if r.risk_level == 'low']
         
-        # 计算安全评分
-        total_possible_score = 100
-        penalty_score = len(high_risk) * 20 + len(medium_risk) * 10 + len(low_risk) * 5
-        security_score = max(0, total_possible_score - penalty_score)
+        # 🔥 关键：计算基于penalty的安全评分
+        security_score = self._calculate_penalty_based_score(results)
         
         # 确定整体风险等级
-        if len(high_risk) >= 2 or security_score < 40:
-            overall_risk = 'high'
-        elif len(high_risk) >= 1 or len(medium_risk) >= 2 or security_score < 70:
-            overall_risk = 'medium'
-        else:
-            overall_risk = 'low'
+        overall_risk = self._determine_overall_risk(results, security_score)
+        
+        print(f"[ScannerManager] 📊 评分结果: {security_score}/100, 风险等级: {overall_risk}")
         
         return {
             'url': url,
@@ -152,8 +149,116 @@ class ThreadSafeScannerManager:
                 'low_risk': len(low_risk)
             },
             'results': [result.to_dict() for result in results],
-            'summary': self._generate_summary(results, overall_risk)
+            'summary': self._generate_summary(results, overall_risk),
+            'scoring_details': self._generate_scoring_details(results)
         }
+    
+    def _calculate_penalty_based_score(self, results: List[ScanResult]) -> int:
+        """🔥 关键：计算基于penalty的安全评分"""
+        total_penalty = 0
+        
+        # 获取HeaderScanner的最大可能惩罚
+        header_scanner = next((s for s in self.scanners if isinstance(s, HeaderScanner)), None)
+        if header_scanner:
+            max_possible_penalty = header_scanner.get_max_possible_penalty()
+        else:
+            # 后备计算
+            max_possible_penalty = 53  # 25+10+6+6+3+3
+        
+        print(f"[ScannerManager] 📊 最大可能惩罚分: {max_possible_penalty}")
+        
+        # 计算实际惩罚
+        for result in results:
+            penalty_score = 0
+            
+            # 🔥 关键：从结果的details中获取penalty_score
+            if result.details and 'penalty_score' in result.details:
+                penalty_score = result.details['penalty_score']
+                print(f"[ScannerManager] ⚠️ {result.title}: {penalty_score}分惩罚")
+            else:
+                # 后备计算方法（如果details中没有penalty_score）
+                if 'Header' in result.vulnerability_type:
+                    if result.vulnerability_type == 'Missing Security Header':
+                        if 'CSP' in result.title or 'Content-Security-Policy' in result.title:
+                            penalty_score = 25
+                        elif result.risk_level == 'high':
+                            penalty_score = 10
+                        elif result.risk_level == 'medium':
+                            penalty_score = 6
+                        else:
+                            penalty_score = 3
+                    elif result.vulnerability_type == 'Misconfigured Security Header':
+                        if 'CSP' in result.title or 'Content-Security-Policy' in result.title:
+                            severity = result.details.get('severity', 'moderate') if result.details else 'moderate'
+                            if severity == 'critical':
+                                penalty_score = 12
+                            elif severity == 'major':
+                                penalty_score = 8
+                            elif severity == 'moderate':
+                                penalty_score = 5
+                            else:
+                                penalty_score = 2
+                        else:
+                            if result.risk_level == 'high':
+                                penalty_score = 5
+                            elif result.risk_level == 'medium':
+                                penalty_score = 3
+                            else:
+                                penalty_score = 1
+                    elif result.vulnerability_type == 'CSP Set via Meta Tag':
+                        penalty_score = 4
+                else:
+                    # 其他类型的漏洞（XSS, SQL注入等）
+                    if result.risk_level == 'high':
+                        penalty_score = 20
+                    elif result.risk_level == 'medium':
+                        penalty_score = 10
+                    else:
+                        penalty_score = 5
+                
+                print(f"[ScannerManager] ⚠️ {result.title}: {penalty_score}分惩罚 (后备计算)")
+            
+            total_penalty += penalty_score
+        
+        print(f"[ScannerManager] 📊 总惩罚分: {total_penalty}/{max_possible_penalty}")
+        
+        # 🔥 关键：使用与前端相同的评分公式
+        if max_possible_penalty > 0:
+            penalty_percentage = total_penalty / max_possible_penalty
+            score = max(0, round(100 * (1 - penalty_percentage)))
+        else:
+            score = max(0, 100 - total_penalty)
+        
+        print(f"[ScannerManager] 🎯 最终评分: {score}/100")
+        return score
+    
+    def _determine_overall_risk(self, results: List[ScanResult], security_score: int) -> str:
+        """确定整体风险等级"""
+        high_risk = [r for r in results if r.risk_level == 'high']
+        medium_risk = [r for r in results if r.risk_level == 'medium']
+        
+        # 检查是否有CSP相关的严重问题
+        missing_csp = any(
+            ('CSP' in result.title or 'Content-Security-Policy' in result.title) and
+            result.vulnerability_type == 'Missing Security Header'
+            for result in results
+        )
+        
+        critical_csp = any(
+            ('CSP' in result.title or 'Content-Security-Policy' in result.title) and
+            result.details and result.details.get('severity') == 'critical'
+            for result in results
+        )
+        
+        print(f"[ScannerManager] 🔍 风险评估: 评分={security_score}, 高风险={len(high_risk)}, 中风险={len(medium_risk)}, 缺失CSP={missing_csp}, 严重CSP={critical_csp}")
+        
+        # 🔥 关键：基于评分和CSP状态的风险等级判断
+        if security_score < 40 or len(high_risk) >= 2 or missing_csp or critical_csp:
+            return 'high'
+        elif security_score < 70 or len(high_risk) >= 1 or len(medium_risk) >= 2:
+            return 'medium'
+        else:
+            return 'low'
     
     def _generate_summary(self, results: List[ScanResult], overall_risk: str) -> str:
         """生成扫描摘要"""
@@ -164,6 +269,10 @@ class ThreadSafeScannerManager:
         medium_count = len([r for r in results if r.risk_level == 'medium'])
         low_count = len([r for r in results if r.risk_level == 'low'])
         
+        # 特别标注CSP问题
+        csp_issues = [r for r in results if 'CSP' in r.title or 'Content-Security-Policy' in r.title]
+        critical_csp = [r for r in csp_issues if r.details and r.details.get('severity') == 'critical']
+        
         summary_parts = []
         if high_count > 0:
             summary_parts.append(f"{high_count} 个高风险问题")
@@ -172,4 +281,52 @@ class ThreadSafeScannerManager:
         if low_count > 0:
             summary_parts.append(f"{low_count} 个低风险问题")
         
+        if critical_csp:
+            summary_parts.append(f"{len(critical_csp)} 个严重CSP问题")
+        
         return f"发现 {', '.join(summary_parts)}"
+    
+    def _generate_scoring_details(self, results: List[ScanResult]) -> Dict[str, Any]:
+        """生成评分详情"""
+        penalty_breakdown = []
+        total_penalty = 0
+        
+        for result in results:
+            penalty_score = 0
+            if result.details and 'penalty_score' in result.details:
+                penalty_score = result.details['penalty_score']
+            
+            total_penalty += penalty_score
+            
+            penalty_breakdown.append({
+                'title': result.title,
+                'type': result.vulnerability_type,
+                'penalty_score': penalty_score,
+                'penalty_type': result.details.get('penalty_type', 'unknown') if result.details else 'unknown',
+                'risk_level': result.risk_level,
+                'severity': result.details.get('severity', 'moderate') if result.details else 'moderate'
+            })
+        
+        # 获取HeaderScanner的最大可能惩罚
+        header_scanner = next((s for s in self.scanners if isinstance(s, HeaderScanner)), None)
+        max_possible_penalty = header_scanner.get_max_possible_penalty() if header_scanner else 53
+        
+        return {
+            'total_penalty': total_penalty,
+            'max_possible_penalty': max_possible_penalty,
+            'penalty_percentage': round((total_penalty / max_possible_penalty * 100), 1) if max_possible_penalty > 0 else 0,
+            'penalty_breakdown': penalty_breakdown,
+            'csp_specific_issues': [
+                item for item in penalty_breakdown 
+                if 'CSP' in item['title'] or 'Content-Security-Policy' in item['title']
+            ],
+            'header_issues': [
+                item for item in penalty_breakdown 
+                if 'Header' in item['type']
+            ],
+            'other_issues': [
+                item for item in penalty_breakdown 
+                if 'Header' not in item['type']
+            ]
+        }
+                

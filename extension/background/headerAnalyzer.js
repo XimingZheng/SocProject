@@ -9,7 +9,6 @@ export default class HeaderAnalyzer {
                 explanation: 'This header prevents browsers from guessing the MIME type, reducing the risk of executing malicious content.',
                 fixSuggestion: 'Add X-Content-Type-Options: nosniff to the server response.',
                 references: ['https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options'],
-                // 评分权重
                 missingPenalty: 6,
                 misconfiguredPenalty: 3
             },
@@ -32,10 +31,12 @@ export default class HeaderAnalyzer {
                 explanation: 'This header defines the resources the page can load to mitigate XSS attacks.',
                 fixSuggestion: '配置适当的CSP策略, 例如：default-src \'self\'',
                 references: ['https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP'],
-                // CSP特殊评分：缺失惩罚大，配置不当惩罚相对较小
-                missingPenalty: 15,      // 缺失惩罚很大
-                misconfiguredPenalty: 5, // 配置不当惩罚较小
-                metaTagPenalty: 2       // 通过meta标签设置的轻微惩罚
+                // 🔥 关键修复：CSP特殊评分配置
+                missingPenalty: 25,         // 增加CSP缺失惩罚
+                misconfiguredPenalty: 8,    // 一般配置错误
+                weakCSPPenalty: 5,          // 弱CSP配置
+                incompleteCSPPenalty: 12,   // 不完整CSP配置
+                metaTagPenalty: 4           // Meta标签设置
             },
             'strict-transport-security': {
                 name: 'Strict-Transport-Security',
@@ -79,7 +80,7 @@ export default class HeaderAnalyzer {
         let maxPossiblePenalty = 0;
 
         // 添加调试信息
-        console.log('[HeaderAnalyzer] 开始扫描，接收到的头部:', headers);
+        console.log('[HeaderAnalyzer] 🔍 开始扫描，接收到的头部:', headers);
 
         // 确保所有头部键名都是小写
         const normalizedHeaders = {};
@@ -87,23 +88,25 @@ export default class HeaderAnalyzer {
             normalizedHeaders[key.toLowerCase()] = headers[key];
         });
 
-        console.log('[HeaderAnalyzer] 标准化后的头部:', normalizedHeaders);
+        console.log('[HeaderAnalyzer] 📝 标准化后的头部:', normalizedHeaders);
 
-        // 计算最大可能惩罚分（用于评分计算）
+        // 🔥 修复：计算最大可能惩罚分时包含所有惩罚类型
         Object.values(this.securityHeaders).forEach(config => {
             maxPossiblePenalty += config.missingPenalty;
         });
+
+        console.log('[HeaderAnalyzer] 📊 最大可能惩罚分:', maxPossiblePenalty);
 
         for (const [headerKey, headerConfig] of Object.entries(this.securityHeaders)) {
             const headerValue = normalizedHeaders[headerKey];
             
             // CSP特殊调试信息
             if (headerKey === 'content-security-policy') {
-                console.log('[HeaderAnalyzer] CSP 详细检查:');
+                console.log('[HeaderAnalyzer] 🛡️ CSP 详细检查:');
                 console.log('  - 查找键名:', headerKey);
                 console.log('  - 找到值:', headerValue);
                 console.log('  - 是否来自 meta:', normalizedHeaders['_meta_csp']);
-                console.log('  - 原始头部中的CSP相关键:', Object.keys(headers).filter(k => k.toLowerCase().includes('csp') || k.toLowerCase().includes('content-security')));
+                console.log('  - CSP配置:', headerConfig);
             }
             
             const analysisResult = this.analyzeHeaderWithScoring(headerKey, headerValue, headerConfig, normalizedHeaders);
@@ -113,15 +116,22 @@ export default class HeaderAnalyzer {
             }
             
             totalPenalty += analysisResult.penalty;
+            
+            // 调试信息
+            if (analysisResult.penalty > 0) {
+                console.log(`[HeaderAnalyzer] ⚠️  ${headerKey} 惩罚: ${analysisResult.penalty}分`);
+            }
         }
 
-        // 计算评分：100 - (惩罚分 / 最大惩罚分 * 100)
-        const score = Math.max(0, Math.round(100 - (totalPenalty / maxPossiblePenalty * 100)));
+        // 🔥 修复：调整评分计算公式，确保差异更明显
+        const penaltyPercentage = maxPossiblePenalty > 0 ? (totalPenalty / maxPossiblePenalty) : 0;
+        const score = Math.max(0, Math.round(100 * (1 - penaltyPercentage)));
         const overallRiskLevel = this.calculateOverallRiskWithScoring(score, issues);
 
-        console.log('[HeaderAnalyzer] 评分详情:');
+        console.log('[HeaderAnalyzer] 📈 评分详情:');
         console.log('  - 总惩罚分:', totalPenalty);
         console.log('  - 最大惩罚分:', maxPossiblePenalty);
+        console.log('  - 惩罚百分比:', (penaltyPercentage * 100).toFixed(1) + '%');
         console.log('  - 计算得分:', score);
         console.log('  - 风险等级:', overallRiskLevel);
 
@@ -137,7 +147,7 @@ export default class HeaderAnalyzer {
                 scoreCalculation: {
                     totalPenalty,
                     maxPossiblePenalty,
-                    penaltyPercentage: (totalPenalty / maxPossiblePenalty * 100).toFixed(1)
+                    penaltyPercentage: (penaltyPercentage * 100).toFixed(1)
                 },
                 issueBreakdown: this.generateIssueBreakdown(issues)
             }
@@ -151,7 +161,7 @@ export default class HeaderAnalyzer {
         if (!headerValue) {
             // 特殊处理 CSP：检查是否通过 meta 标签设置
             if (headerKey === 'content-security-policy' && allHeaders['_meta_csp']) {
-                penalty = headerConfig.metaTagPenalty || 2;
+                penalty = headerConfig.metaTagPenalty || 4;
                 issue = {
                     type: 'meta-tag',
                     header: headerConfig.name,
@@ -164,6 +174,7 @@ export default class HeaderAnalyzer {
                     source: 'meta',
                     penalty: penalty
                 };
+                console.log(`[HeaderAnalyzer] 📋 CSP通过meta标签设置，惩罚: ${penalty}分`);
             } else {
                 // 头部完全缺失
                 penalty = headerConfig.missingPenalty;
@@ -178,30 +189,67 @@ export default class HeaderAnalyzer {
                     currentValue: null,
                     penalty: penalty
                 };
+                console.log(`[HeaderAnalyzer] ❌ ${headerKey} 缺失，惩罚: ${penalty}分`);
             }
         } else {
             // 头部存在，检查配置是否正确
             const validationResult = this.validateHeaderValue(headerKey, headerValue, headerConfig);
             if (!validationResult.isValid) {
-                // 头部配置不当
-                penalty = headerConfig.misconfiguredPenalty;
+                // 🔥 关键修复：确保CSP使用差异化惩罚
+                if (headerKey === 'content-security-policy') {
+                    penalty = this.calculateCSPPenalty(headerValue, headerConfig, validationResult);
+                    console.log(`[HeaderAnalyzer] 🔧 CSP配置不当，严重程度: ${validationResult.severity}, 惩罚: ${penalty}分`);
+                } else {
+                    penalty = headerConfig.misconfiguredPenalty;
+                    console.log(`[HeaderAnalyzer] ⚙️ ${headerKey} 配置不当，惩罚: ${penalty}分`);
+                }
+                
                 issue = {
                     type: 'misconfigured',
                     header: headerConfig.name,
                     description: headerConfig.description,
-                    riskLevel: this.reducedRiskLevel(headerConfig.riskLevel), // 降低风险等级
+                    riskLevel: this.reducedRiskLevel(headerConfig.riskLevel),
                     explanation: headerConfig.explanation,
                     fixSuggestion: headerConfig.fixSuggestion,
                     references: headerConfig.references,
                     currentValue: headerValue,
                     issue: validationResult.issue,
-                    penalty: penalty
+                    penalty: penalty,
+                    severity: validationResult.severity || 'moderate'
                 };
+            } else {
+                console.log(`[HeaderAnalyzer] ✅ ${headerKey} 配置正确`);
             }
-            // 如果配置正确，penalty保持为0，issue保持为null
         }
 
         return { penalty, issue };
+    }
+
+    calculateCSPPenalty(cspValue, headerConfig, validationResult) {
+        // 🔥 关键修复：根据CSP问题的严重程度分配不同惩罚
+        const severity = validationResult.severity || 'moderate';
+        
+        let penalty;
+        switch (severity) {
+            case 'critical':
+                penalty = headerConfig.incompleteCSPPenalty || 12;   // 严重配置问题
+                break;
+            case 'major':
+                penalty = headerConfig.misconfiguredPenalty || 8;    // 重大配置问题
+                break;
+            case 'moderate':
+                penalty = headerConfig.weakCSPPenalty || 5;          // 中等配置问题
+                break;
+            case 'minor':
+                penalty = 2;                                         // 轻微配置问题
+                break;
+            default:
+                penalty = headerConfig.misconfiguredPenalty || 8;
+                break;
+        }
+        
+        console.log(`[HeaderAnalyzer] 🎯 CSP惩罚计算: 严重程度=${severity}, 惩罚=${penalty}分`);
+        return penalty;
     }
 
     validateHeaderValue(headerKey, headerValue, headerConfig) {
@@ -273,19 +321,20 @@ export default class HeaderAnalyzer {
     }
 
     validateCSP(cspValue) {
-        console.log('[HeaderAnalyzer] 验证 CSP 值:', cspValue);
+        console.log('[HeaderAnalyzer] 🛡️ 验证 CSP 值:', cspValue);
         
         if (!cspValue || cspValue.trim() === '') {
             return {
                 isValid: false,
-                issue: 'CSP value is empty'
+                issue: 'CSP value is empty',
+                severity: 'critical'
             };
         }
 
         const cspLower = cspValue.toLowerCase();
         const directives = cspValue.split(';').map(d => d.trim()).filter(d => d);
         
-        console.log('[HeaderAnalyzer] CSP 指令:', directives);
+        console.log('[HeaderAnalyzer] 📋 CSP 指令:', directives);
 
         // 检查关键指令
         const hasDefaultSrc = directives.some(d => d.startsWith('default-src'));
@@ -297,21 +346,31 @@ export default class HeaderAnalyzer {
         const hasUnsafeEval = cspLower.includes("'unsafe-eval'");
         const hasWildcard = cspLower.includes('*') && !cspLower.includes("'self'");
 
-        // 评估 CSP 强度 - 使用分级验证
+        // 🔥 关键修复：使用更严格的CSP验证逻辑
         let issues = [];
-        let severity = 'minor'; // minor, major, critical
+        let severity = 'minor';
         
         // 关键缺失（严重问题）
         if (!hasDefaultSrc && !hasScriptSrc) {
             issues.push('Missing default-src or script-src directive');
+            severity = 'critical';
+        } else if (!hasDefaultSrc) {
+            issues.push('Missing default-src directive');
             severity = 'major';
         }
         
-        // 不安全指令（中等问题）
-        if (hasUnsafeInline && hasUnsafeEval) {
-            issues.push('CSP contains both unsafe-inline and unsafe-eval, providing minimal protection');
-            severity = 'major';
-        } else if (hasUnsafeInline) {
+        // 极不安全组合（严重问题）
+        if (hasUnsafeInline && hasUnsafeEval && hasWildcard) {
+            issues.push('CSP contains unsafe-inline, unsafe-eval, and wildcard - provides minimal protection');
+            severity = 'critical';
+        }
+        // 不安全指令组合（重大问题）
+        else if (hasUnsafeInline && hasUnsafeEval) {
+            issues.push('CSP contains both unsafe-inline and unsafe-eval, reducing security significantly');
+            if (severity === 'minor') severity = 'major';
+        }
+        // 单个不安全指令（中等问题）
+        else if (hasUnsafeInline) {
             issues.push("Contains 'unsafe-inline' directive, which reduces security");
             if (severity === 'minor') severity = 'moderate';
         } else if (hasUnsafeEval) {
@@ -319,13 +378,13 @@ export default class HeaderAnalyzer {
             if (severity === 'minor') severity = 'moderate';
         }
         
-        // 通配符问题（轻微问题）
+        // 通配符问题（轻微到中等问题）
         if (hasWildcard) {
             issues.push('Contains wildcard (*) without proper restrictions');
             if (severity === 'minor') severity = 'moderate';
         }
 
-        console.log('[HeaderAnalyzer] CSP 验证结果:', {
+        console.log('[HeaderAnalyzer] 🔍 CSP 验证结果:', {
             hasDefaultSrc,
             hasScriptSrc,
             hasUnsafeInline,
@@ -360,9 +419,10 @@ export default class HeaderAnalyzer {
         const highRiskIssues = issues.filter(issue => issue.riskLevel === 'high').length;
         const mediumRiskIssues = issues.filter(issue => issue.riskLevel === 'medium').length;
         const missingCSP = issues.some(issue => issue.type === 'missing' && issue.header === 'Content-Security-Policy');
+        const criticalCSP = issues.some(issue => issue.severity === 'critical' && issue.header === 'Content-Security-Policy');
 
-        // 基于评分的风险等级判断
-        if (score < 40 || highRiskIssues >= 2 || missingCSP) {
+        // 🔥 修复：调整风险等级阈值，使差异更明显
+        if (score < 40 || highRiskIssues >= 2 || missingCSP || criticalCSP) {
             return 'high';
         } else if (score < 70 || highRiskIssues >= 1 || mediumRiskIssues >= 2) {
             return 'medium';
@@ -379,6 +439,7 @@ export default class HeaderAnalyzer {
         const missingCount = issues.filter(issue => issue.type === 'missing').length;
         const misconfiguredCount = issues.filter(issue => issue.type === 'misconfigured').length;
         const metaTagCount = issues.filter(issue => issue.type === 'meta-tag').length;
+        const criticalCSPCount = issues.filter(issue => issue.severity === 'critical' && issue.header === 'Content-Security-Policy').length;
 
         let summary = [];
         
@@ -391,6 +452,9 @@ export default class HeaderAnalyzer {
         if (metaTagCount > 0) {
             summary.push(`${metaTagCount} headers set via meta tags`);
         }
+        if (criticalCSPCount > 0) {
+            summary.push(`${criticalCSPCount} critical CSP issues`);
+        }
 
         return `Detected ${summary.join(', ')}`;
     }
@@ -400,6 +464,7 @@ export default class HeaderAnalyzer {
             missing: issues.filter(i => i.type === 'missing').length,
             misconfigured: issues.filter(i => i.type === 'misconfigured').length,
             metaTag: issues.filter(i => i.type === 'meta-tag').length,
+            criticalCSP: issues.filter(i => i.severity === 'critical' && i.header === 'Content-Security-Policy').length,
             totalPenalty: issues.reduce((sum, issue) => sum + (issue.penalty || 0), 0)
         };
 
@@ -407,7 +472,8 @@ export default class HeaderAnalyzer {
             header: issue.header,
             type: issue.type,
             penalty: issue.penalty || 0,
-            riskLevel: issue.riskLevel
+            riskLevel: issue.riskLevel,
+            severity: issue.severity || 'moderate'
         }));
 
         return { breakdown, penaltyBreakdown };
