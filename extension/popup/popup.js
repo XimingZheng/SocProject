@@ -6,13 +6,19 @@ let currentScanMode = 'backend'; // 默认使用后端模式
 
 // 扫描模式配置
 const SCAN_MODES = {
-    BACKEND: 'backend',  // Backend Scan（优先模式）
-    HYBRID: 'hybrid'     // 混合模式
+    BACKEND: 'backend',
+    HYBRID: 'hybrid'
 };
 
 const SCAN_MODE_LABELS = {
     'backend': '☁️ Backend Scan',
     'hybrid': '⚡ Smart Mode'
+};
+
+// 🔥 关键：统一的评分颜色阈值 - 与弹窗逻辑保持一致
+const SCORE_COLOR_THRESHOLDS = {
+    HIGH_RISK: 45,    // 分数低于45为红色(高风险)
+    MEDIUM_RISK: 75   // 分数低于75为橙色(中风险)，≥75为绿色(低风险)
 };
 
 // 初始化
@@ -58,15 +64,45 @@ function setupEventListeners() {
     document.getElementById('devRefreshBtn').addEventListener('click', performRescan);
     document.getElementById('exportBtn').addEventListener('click', exportReport);
 
-    // 扫描模式切换按钮
-    document.getElementById('scanModeBtn').addEventListener('click', showScanModeSelector);
-    document.getElementById('detailedScanBtn').addEventListener('click', startDetailedScan);
-    document.getElementById('backendStatusBtn').addEventListener('click', showBackendStatus);
-
     // 折叠区域切换
     document.getElementById('toggleOverview').addEventListener('click', () => toggleSection('overview'));
     document.getElementById('toggleIssues').addEventListener('click', () => toggleSection('issues'));
     document.getElementById('toggleHeaders').addEventListener('click', () => toggleSection('headers'));
+    document.getElementById('toggleAdvanced').addEventListener('click', () => toggleSection('advanced'));
+    document.getElementById('toggleScanners').addEventListener('click', () => toggleSection('scanners'));
+}
+
+// 🔥 新方法：基于分数获取颜色类名
+function getScoreColorClass(score) {
+    if (score < SCORE_COLOR_THRESHOLDS.HIGH_RISK) {
+        return 'high';    // 红色
+    } else if (score < SCORE_COLOR_THRESHOLDS.MEDIUM_RISK) {
+        return 'medium';  // 橙色
+    } else {
+        return 'low';     // 绿色
+    }
+}
+
+// 🔥 新方法：基于分数获取风险等级文本
+function getScoreRiskText(score) {
+    if (score < SCORE_COLOR_THRESHOLDS.HIGH_RISK) {
+        return 'Security risks detected';
+    } else if (score < SCORE_COLOR_THRESHOLDS.MEDIUM_RISK) {
+        return 'Partial configuration missing';
+    } else {
+        return 'Security well configured';
+    }
+}
+
+// 🔥 新方法：基于分数获取图标
+function getScoreIcon(score) {
+    if (score < SCORE_COLOR_THRESHOLDS.HIGH_RISK) {
+        return '⚠️';
+    } else if (score < SCORE_COLOR_THRESHOLDS.MEDIUM_RISK) {
+        return '⚠️';
+    } else {
+        return '✅';
+    }
 }
 
 // 检查后端状态
@@ -448,32 +484,27 @@ function updateUserMode(results) {
     const scoreNumber = document.getElementById('scoreNumber');
     const scoreDescription = document.getElementById('scoreDescription');
 
-    // 更新安全徽章
-    badge.className = `security-badge ${results.riskLevel}`;
+    // 🔥 关键修复：使用分数而非riskLevel确定颜色
+    const score = results.score || 0;
+    const scoreColorClass = getScoreColorClass(score);
+    const badgeText = getScoreRiskText(score);
+    const badgeIcon = getScoreIcon(score);
 
-    let badgeText = '';
-    let badgeIcon = '';
+    console.log('[Popup] 🎨 评分颜色更新:', {
+        score,
+        scoreColorClass,
+        badgeText,
+        thresholds: SCORE_COLOR_THRESHOLDS
+    });
 
-    if (results.riskLevel === 'high') {
-        badgeText = 'Security risks detected';
-        badgeIcon = '⚠️';
-    } else if (results.riskLevel === 'medium') {
-        badgeText = 'Partial configuration missing';
-        badgeIcon = '⚠️';
-    } else if (results.riskLevel === 'low') {
-        badgeText = 'Minor issues';
-        badgeIcon = '💡';
-    } else {
-        badgeText = 'Security well configured';
-        badgeIcon = '✅';
-    }
-
+    // 更新安全徽章 - 使用基于分数的颜色
+    badge.className = `security-badge ${scoreColorClass}`;
     badge.innerHTML = `<span class="icon">${badgeIcon}</span><span>${badgeText}</span>`;
 
-    // 更新评分
-    scoreCircle.className = `score-circle ${results.riskLevel}`;
-    scoreNumber.textContent = results.score || 0;
-    scoreDescription.textContent = `Security Score: ${results.score || 0}/100`;
+    // 更新评分圆圈 - 使用基于分数的颜色
+    scoreCircle.className = `score-circle ${scoreColorClass}`;
+    scoreNumber.textContent = score;
+    scoreDescription.textContent = `Security Score: ${score}/100`;
 
     // 更新统计信息
     const highCount = results.issues ? results.issues.filter(issue => issue.riskLevel === 'high').length : 0;
@@ -551,6 +582,10 @@ function updateModeSpecificButtons(results) {
 
 // 更新开发者模式界面
 function updateDeveloperMode(results) {
+    // 🔥 关键修复：开发者模式也使用基于分数的颜色显示
+    const score = results.score || 0;
+    const scoreColorClass = getScoreColorClass(score);
+    
     // 更新统计信息
     const highCount = results.issues ? results.issues.filter(issue => issue.riskLevel === 'high').length : 0;
     const mediumCount = results.issues ? results.issues.filter(issue => issue.riskLevel === 'medium').length : 0;
@@ -559,6 +594,25 @@ function updateDeveloperMode(results) {
     document.getElementById('dev-high').textContent = highCount;
     document.getElementById('dev-medium').textContent = mediumCount;
     document.getElementById('dev-low').textContent = lowCount;
+
+    // 更新扫描模式和后端状态信息
+    const currentScanModeEl = document.getElementById('currentScanMode');
+    const backendStatusInfoEl = document.getElementById('backendStatusInfo');
+    
+    if (currentScanModeEl) {
+        currentScanModeEl.innerHTML = `
+            <span class="scan-mode-indicator ${currentScanMode}">${SCAN_MODE_LABELS[currentScanMode]}</span>
+            <span style="margin-left: 10px; color: ${scoreColorClass === 'high' ? '#ff6b6b' : scoreColorClass === 'medium' ? '#ffa726' : '#42a5f5'};">
+                Score: ${score}/100
+            </span>
+        `;
+    }
+    
+    if (backendStatusInfoEl) {
+        const statusColor = backendStatus?.isHealthy ? '#4CAF50' : '#f44336';
+        const statusText = backendStatus?.isHealthy ? 'Online' : 'Offline';
+        backendStatusInfoEl.innerHTML = `<span style="color: ${statusColor};">${statusText}</span>`;
+    }
 
     // 更新Issue列表
     const issuesList = document.getElementById('issuesList');
@@ -693,7 +747,6 @@ async function callOpenAI(prompt) {
     });
 }
 
-
 // 切换折叠区域
 function toggleSection(sectionId) {
     const content = document.getElementById(sectionId + '-content');
@@ -720,9 +773,11 @@ function exportReport() {
         scanMode: scanResults.scanMode,
         score: scanResults.score,
         riskLevel: scanResults.riskLevel,
+        scoreColorClass: getScoreColorClass(scanResults.score), // 添加基于分数的颜色信息
         issues: scanResults.issues,
         headers: scanResults.headers,
-        backendStatus: backendStatus
+        backendStatus: backendStatus,
+        colorThresholds: SCORE_COLOR_THRESHOLDS // 添加阈值信息
     };
 
     const blob = new Blob([JSON.stringify(report, null, 2)], {type: 'application/json'});

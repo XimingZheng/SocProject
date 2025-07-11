@@ -141,14 +141,11 @@ def quick_scan():
         medium_risk = [r for r in results if r.risk_level == 'medium']
         low_risk = [r for r in results if r.risk_level == 'low']
 
-        security_score = max(0, 100 - (len(high_risk) * 20 + len(medium_risk) * 10 + len(low_risk) * 5))
+        # 馃敟 鍏抽敭淇敼锛氫娇鐢╬enalty-based璇勫垎璁＄畻瀹夊叏鍒嗘暟
+        security_score = calculate_penalty_based_score(results, scanner)
 
-        if len(high_risk) >= 2 or security_score < 40:
-            overall_risk = 'high'
-        elif len(high_risk) >= 1 or len(medium_risk) >= 2 or security_score < 70:
-            overall_risk = 'medium'
-        else:
-            overall_risk = 'low'
+        # 馃敟 鍏抽敭淇敼锛氬熀浜庡垎鏁拌?屼笉鏄棶棰樻暟閲忕‘瀹氶闄╃瓑绾?
+        overall_risk = determine_score_based_risk(security_score)
 
         return jsonify({
             'url': url,
@@ -168,6 +165,87 @@ def quick_scan():
     except Exception as e:
         logger.error(f"Quick scan failed: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+def calculate_penalty_based_score(results, scanner):
+    """馃敟 鍏抽敭锛氳绠楀熀浜巔enalty鐨勫畨鍏ㄨ瘎鍒?"""
+    total_penalty = 0
+    max_possible_penalty = scanner.get_max_possible_penalty()
+    
+    print(f"[QuickScan] 馃搳 鏈?澶у彲鑳芥儵缃氬垎: {max_possible_penalty}")
+    
+    # 璁＄畻瀹為檯鎯╃綒
+    for result in results:
+        penalty_score = 0
+        
+        # 浠庣粨鏋滅殑details涓幏鍙杙enalty_score
+        if result.details and 'penalty_score' in result.details:
+            penalty_score = result.details['penalty_score']
+            print(f"[QuickScan] 鈿狅笍 {result.title}: {penalty_score}鍒嗘儵缃?")
+        else:
+            # 鍚庡璁＄畻鏂规硶
+            if 'Header' in result.vulnerability_type:
+                if result.vulnerability_type == 'Missing Security Header':
+                    if 'CSP' in result.title or 'Content-Security-Policy' in result.title:
+                        penalty_score = 25
+                    elif result.risk_level == 'high':
+                        penalty_score = 10
+                    elif result.risk_level == 'medium':
+                        penalty_score = 6
+                    else:
+                        penalty_score = 3
+                elif result.vulnerability_type == 'Misconfigured Security Header':
+                    if 'CSP' in result.title or 'Content-Security-Policy' in result.title:
+                        severity = result.details.get('severity', 'moderate') if result.details else 'moderate'
+                        if severity == 'critical':
+                            penalty_score = 12
+                        elif severity == 'major':
+                            penalty_score = 8
+                        elif severity == 'moderate':
+                            penalty_score = 5
+                        else:
+                            penalty_score = 2
+                    else:
+                        if result.risk_level == 'high':
+                            penalty_score = 5
+                        elif result.risk_level == 'medium':
+                            penalty_score = 3
+                        else:
+                            penalty_score = 1
+                elif result.vulnerability_type == 'CSP Set via Meta Tag':
+                    penalty_score = 4
+            
+            print(f"[QuickScan] 鈿狅笍 {result.title}: {penalty_score}鍒嗘儵缃? (鍚庡璁＄畻)")
+        
+        total_penalty += penalty_score
+    
+    print(f"[QuickScan] 馃搳 鎬绘儵缃氬垎: {total_penalty}/{max_possible_penalty}")
+    
+    # 浣跨敤涓庡墠绔浉鍚岀殑璇勫垎鍏紡
+    if max_possible_penalty > 0:
+        penalty_percentage = total_penalty / max_possible_penalty
+        score = max(0, round(100 * (1 - penalty_percentage)))
+    else:
+        score = max(0, 100 - total_penalty)
+    
+    print(f"[QuickScan] 馃幆 鏈?缁堣瘎鍒?: {score}/100")
+    return score
+
+
+def determine_score_based_risk(security_score: int) -> str:
+    """馃敟 鍏抽敭淇敼锛氱函绮瑰熀浜庡垎鏁扮‘瀹氭暣浣撻闄╃瓑绾?"""
+    print(f"[QuickScan] 馃幆 鍩轰簬鍒嗘暟璁＄畻椋庨櫓绛夌骇: score={security_score}")
+    
+    # 绾补鍩轰簬鍒嗘暟鐨勯闄╃瓑绾у垽鏂紝涓庡墠绔繚鎸佷竴鑷?
+    if security_score < 40:
+        print('[QuickScan] 馃敶 椋庨櫓绛夌骇: high (鍒嗘暟 < 40)')
+        return 'high'
+    elif security_score < 70:
+        print('[QuickScan] 馃煚 椋庨櫓绛夌骇: medium (鍒嗘暟 < 70)')
+        return 'medium'
+    else:
+        print('[QuickScan] 馃煝 椋庨櫓绛夌骇: low (鍒嗘暟 >= 70)')
+        return 'low'
 
 
 @app.route('/api/health', methods=['GET'])
@@ -236,7 +314,7 @@ def cleanup_expired_tasks():
 if __name__ == '__main__':
     threading.Thread(target=cleanup_expired_tasks, daemon=True).start()
 
-    print("🔒 HeaderSense backend server starting...")
+    print("馃敀 HeaderSense backend server starting...")
     print("=" * 50)
     print("API Endpoints:")
     print("  POST /api/scan")

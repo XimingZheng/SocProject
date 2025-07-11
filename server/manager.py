@@ -15,7 +15,7 @@ from scanners.SSLScanner import SSLScanner
 logger = logging.getLogger(__name__)
 
 class ThreadSafeScannerManager:
-    """线程安全的扫描器管理器 - 🔥 使用基于penalty的评分系统"""
+    """线程安全的扫描器管理器 - 🔥 使用基于penalty和score的风险评估系统"""
     
     def __init__(self):
         self.scanners = []
@@ -131,8 +131,8 @@ class ThreadSafeScannerManager:
         # 🔥 关键：计算基于penalty的安全评分
         security_score = self._calculate_penalty_based_score(results)
         
-        # 确定整体风险等级
-        overall_risk = self._determine_overall_risk(results, security_score)
+        # 🔥 关键修复：基于评分确定整体风险等级，而不是issue数量
+        overall_risk = self._determine_overall_risk_by_score(security_score, results)
         
         print(f"[ScannerManager] 📊 评分结果: {security_score}/100, 风险等级: {overall_risk}")
         
@@ -232,12 +232,11 @@ class ThreadSafeScannerManager:
         print(f"[ScannerManager] 🎯 最终评分: {score}/100")
         return score
     
-    def _determine_overall_risk(self, results: List[ScanResult], security_score: int) -> str:
-        """确定整体风险等级"""
-        high_risk = [r for r in results if r.risk_level == 'high']
-        medium_risk = [r for r in results if r.risk_level == 'medium']
+    def _determine_overall_risk_by_score(self, security_score: int, results: List[ScanResult]) -> str:
+        """🔥 关键修复：基于分数而非issue数量确定整体风险等级"""
+        print(f"[ScannerManager] 🎯 基于分数计算风险等级: {security_score}")
         
-        # 检查是否有CSP相关的严重问题
+        # 检查特殊情况：CSP完全缺失或严重配置错误
         missing_csp = any(
             ('CSP' in result.title or 'Content-Security-Policy' in result.title) and
             result.vulnerability_type == 'Missing Security Header'
@@ -250,14 +249,17 @@ class ThreadSafeScannerManager:
             for result in results
         )
         
-        print(f"[ScannerManager] 🔍 风险评估: 评分={security_score}, 高风险={len(high_risk)}, 中风险={len(medium_risk)}, 缺失CSP={missing_csp}, 严重CSP={critical_csp}")
+        print(f"[ScannerManager] 🔍 特殊情况检查: 缺失CSP={missing_csp}, 严重CSP={critical_csp}")
         
-        # 🔥 关键：基于评分和CSP状态的风险等级判断
-        if security_score < 40 or len(high_risk) >= 2 or missing_csp or critical_csp:
+        # 🔥 关键：主要基于分数判断，CSP问题作为特殊考虑
+        if security_score < 45 or missing_csp or critical_csp:
+            print(f"[ScannerManager] ❌ 高风险: 分数={security_score} < 45 或CSP严重问题")
             return 'high'
-        elif security_score < 70 or len(high_risk) >= 1 or len(medium_risk) >= 2:
+        elif security_score < 75:
+            print(f"[ScannerManager] ⚠️ 中风险: 分数={security_score} 在45-75之间")
             return 'medium'
         else:
+            print(f"[ScannerManager] ✅ 低风险: 分数={security_score} >= 75")
             return 'low'
     
     def _generate_summary(self, results: List[ScanResult], overall_risk: str) -> str:
@@ -329,4 +331,3 @@ class ThreadSafeScannerManager:
                 if 'Header' not in item['type']
             ]
         }
-                

@@ -31,8 +31,7 @@ export default class HeaderAnalyzer {
                 explanation: 'This header defines the resources the page can load to mitigate XSS attacks.',
                 fixSuggestion: '配置适当的CSP策略, 例如：default-src \'self\'',
                 references: ['https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP'],
-                // 🔥 关键修复：CSP特殊评分配置
-                missingPenalty: 25,         // 增加CSP缺失惩罚
+                missingPenalty: 25,         // CSP缺失惩罚最重
                 misconfiguredPenalty: 8,    // 一般配置错误
                 weakCSPPenalty: 5,          // 弱CSP配置
                 incompleteCSPPenalty: 12,   // 不完整CSP配置
@@ -79,7 +78,6 @@ export default class HeaderAnalyzer {
         let totalPenalty = 0;
         let maxPossiblePenalty = 0;
 
-        // 添加调试信息
         console.log('[HeaderAnalyzer] 🔍 开始扫描，接收到的头部:', headers);
 
         // 确保所有头部键名都是小写
@@ -90,7 +88,7 @@ export default class HeaderAnalyzer {
 
         console.log('[HeaderAnalyzer] 📝 标准化后的头部:', normalizedHeaders);
 
-        // 🔥 修复：计算最大可能惩罚分时包含所有惩罚类型
+        // 计算最大可能惩罚分
         Object.values(this.securityHeaders).forEach(config => {
             maxPossiblePenalty += config.missingPenalty;
         });
@@ -123,10 +121,12 @@ export default class HeaderAnalyzer {
             }
         }
 
-        // 🔥 修复：调整评分计算公式，确保差异更明显
+        // 调整评分计算公式，确保差异更明显
         const penaltyPercentage = maxPossiblePenalty > 0 ? (totalPenalty / maxPossiblePenalty) : 0;
         const score = Math.max(0, Math.round(100 * (1 - penaltyPercentage)));
-        const overallRiskLevel = this.calculateOverallRiskWithScoring(score, issues);
+        
+        // 🔥 关键修复：基于分数而非issue数量确定风险等级
+        const overallRiskLevel = this.calculateRiskByScore(score, issues);
 
         console.log('[HeaderAnalyzer] 📈 评分详情:');
         console.log('  - 总惩罚分:', totalPenalty);
@@ -166,7 +166,7 @@ export default class HeaderAnalyzer {
                     type: 'meta-tag',
                     header: headerConfig.name,
                     description: headerConfig.description + ' (found in meta tag)',
-                    riskLevel: 'low',
+                    riskLevel: 'low',  // meta标签设置的CSP风险较低
                     explanation: headerConfig.explanation + ' 注意：该CSP通过HTML meta标签设置，建议在HTTP头部设置以获得更好的安全性。',
                     fixSuggestion: 'CSP已通过meta标签设置，建议迁移到HTTP响应头以获得更好的安全性和兼容性。',
                     references: headerConfig.references,
@@ -195,7 +195,7 @@ export default class HeaderAnalyzer {
             // 头部存在，检查配置是否正确
             const validationResult = this.validateHeaderValue(headerKey, headerValue, headerConfig);
             if (!validationResult.isValid) {
-                // 🔥 关键修复：确保CSP使用差异化惩罚
+                // 根据严重程度计算惩罚
                 if (headerKey === 'content-security-policy') {
                     penalty = this.calculateCSPPenalty(headerValue, headerConfig, validationResult);
                     console.log(`[HeaderAnalyzer] 🔧 CSP配置不当，严重程度: ${validationResult.severity}, 惩罚: ${penalty}分`);
@@ -204,11 +204,14 @@ export default class HeaderAnalyzer {
                     console.log(`[HeaderAnalyzer] ⚙️ ${headerKey} 配置不当，惩罚: ${penalty}分`);
                 }
                 
+                // 🔥 关键修复：根据惩罚分数调整风险等级
+                const adjustedRiskLevel = this.adjustRiskByPenalty(headerConfig.riskLevel, penalty, headerConfig);
+                
                 issue = {
                     type: 'misconfigured',
                     header: headerConfig.name,
                     description: headerConfig.description,
-                    riskLevel: this.reducedRiskLevel(headerConfig.riskLevel),
+                    riskLevel: adjustedRiskLevel,
                     explanation: headerConfig.explanation,
                     fixSuggestion: headerConfig.fixSuggestion,
                     references: headerConfig.references,
@@ -226,7 +229,7 @@ export default class HeaderAnalyzer {
     }
 
     calculateCSPPenalty(cspValue, headerConfig, validationResult) {
-        // 🔥 关键修复：根据CSP问题的严重程度分配不同惩罚
+        // 根据CSP问题的严重程度分配不同惩罚
         const severity = validationResult.severity || 'moderate';
         
         let penalty;
@@ -250,6 +253,22 @@ export default class HeaderAnalyzer {
         
         console.log(`[HeaderAnalyzer] 🎯 CSP惩罚计算: 严重程度=${severity}, 惩罚=${penalty}分`);
         return penalty;
+    }
+
+    // 🔥 新方法：根据惩罚分数调整风险等级
+    adjustRiskByPenalty(originalRisk, penalty, headerConfig) {
+        // 对于CSP，特殊处理
+        if (headerConfig.name === 'Content-Security-Policy') {
+            if (penalty >= 12) return 'high';      // 严重CSP问题
+            if (penalty >= 8) return 'medium';     // 重大CSP问题
+            if (penalty >= 5) return 'low';        // 中等CSP问题
+            return 'low';                           // 轻微CSP问题
+        }
+        
+        // 对于其他头部，根据惩罚严重程度调整
+        if (penalty >= 10) return 'high';
+        if (penalty >= 6) return 'medium';
+        return 'low';
     }
 
     validateHeaderValue(headerKey, headerValue, headerConfig) {
@@ -346,7 +365,6 @@ export default class HeaderAnalyzer {
         const hasUnsafeEval = cspLower.includes("'unsafe-eval'");
         const hasWildcard = cspLower.includes('*') && !cspLower.includes("'self'");
 
-        // 🔥 关键修复：使用更严格的CSP验证逻辑
         let issues = [];
         let severity = 'minor';
         
@@ -405,28 +423,28 @@ export default class HeaderAnalyzer {
         return { isValid: true };
     }
 
-    reducedRiskLevel(originalRiskLevel) {
-        // 对于配置不当的头部，降低一个等级的风险
-        switch (originalRiskLevel) {
-            case 'high': return 'medium';
-            case 'medium': return 'low';
-            case 'low': return 'low';
-            default: return originalRiskLevel;
-        }
-    }
-
-    calculateOverallRiskWithScoring(score, issues) {
-        const highRiskIssues = issues.filter(issue => issue.riskLevel === 'high').length;
-        const mediumRiskIssues = issues.filter(issue => issue.riskLevel === 'medium').length;
-        const missingCSP = issues.some(issue => issue.type === 'missing' && issue.header === 'Content-Security-Policy');
-        const criticalCSP = issues.some(issue => issue.severity === 'critical' && issue.header === 'Content-Security-Policy');
-
-        // 🔥 修复：调整风险等级阈值，使差异更明显
-        if (score < 40 || highRiskIssues >= 2 || missingCSP || criticalCSP) {
+    // 🔥 关键修复：基于分数而非issue数量的风险评估
+    calculateRiskByScore(score, issues) {
+        console.log('[HeaderAnalyzer] 🎯 基于分数计算风险等级:', score);
+        
+        // 主要基于分数判断，参考issue作为辅助
+        const hasCSPMissing = issues.some(issue => 
+            issue.type === 'missing' && issue.header === 'Content-Security-Policy'
+        );
+        
+        const hasCriticalCSP = issues.some(issue => 
+            issue.severity === 'critical' && issue.header === 'Content-Security-Policy'
+        );
+        
+        // 🔥 关键：基于分数的阈值，而不是issue数量
+        if (score < 45 || hasCSPMissing || hasCriticalCSP) {
+            console.log('[HeaderAnalyzer] ❌ 高风险: 分数低于45或CSP严重问题');
             return 'high';
-        } else if (score < 70 || highRiskIssues >= 1 || mediumRiskIssues >= 2) {
+        } else if (score < 75) {
+            console.log('[HeaderAnalyzer] ⚠️ 中风险: 分数在45-75之间');
             return 'medium';
         } else {
+            console.log('[HeaderAnalyzer] ✅ 低风险: 分数75以上');
             return 'low';
         }
     }

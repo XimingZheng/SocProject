@@ -104,7 +104,7 @@ class HeaderScanner(BaseScanner):
                             url=url,
                             header_config=header_config,
                             vuln_type='CSP Set via Meta Tag',
-                            risk_level='low',
+                            risk_level='low',  # 🔥 修复：meta标签设置CSP风险较低
                             title=f'{header_config["name"]} set via meta tag',
                             description=f'{header_config["description"]} (found in meta tag)',
                             evidence=f'CSP found in meta tag: {meta_csp[:100]}...' if len(meta_csp) > 100 else f'CSP found in meta tag: {meta_csp}',
@@ -144,11 +144,14 @@ class HeaderScanner(BaseScanner):
                     
                     print(f"[HeaderScanner] ⚙️ {header_key} 配置不当，严重程度: {severity}, 惩罚: {penalty_score}分")
                     
+                    # 🔥 关键修复：根据惩罚分数调整风险等级
+                    adjusted_risk_level = self._get_adjusted_risk_level_by_penalty(header_config, penalty_score, severity)
+                    
                     result = self._create_result(
                         url=url,
                         header_config=header_config,
                         vuln_type='Misconfigured Security Header',
-                        risk_level=self._get_adjusted_risk_level(header_config['risk_level'], severity),
+                        risk_level=adjusted_risk_level,
                         title=f'{header_config["name"]} is misconfigured',
                         description=header_config['description'],
                         evidence=f'{header_key}: {header_value} - {validation_result["issue"]}',
@@ -220,20 +223,26 @@ class HeaderScanner(BaseScanner):
         else:
             return header_config.get('misconfigured_penalty', 3)
     
-    def _get_adjusted_risk_level(self, original_risk: str, severity: str) -> str:
-        """根据严重程度调整风险等级"""
-        if severity == 'critical':
-            return original_risk  # 保持原始风险等级
-        elif severity == 'major':
-            return original_risk if original_risk != 'low' else 'medium'
-        else:
-            # 配置问题降低一个风险等级
-            if original_risk == 'high':
-                return 'medium'
-            elif original_risk == 'medium':
-                return 'low'
+    def _get_adjusted_risk_level_by_penalty(self, header_config: Dict, penalty_score: int, severity: str) -> str:
+        """🔥 新方法：根据惩罚分数调整风险等级"""
+        # 对于CSP，特殊处理
+        if header_config['name'] == 'Content-Security-Policy':
+            if penalty_score >= 12:
+                return 'high'      # 严重CSP问题
+            elif penalty_score >= 8:
+                return 'medium'    # 重大CSP问题
+            elif penalty_score >= 5:
+                return 'low'       # 中等CSP问题
             else:
-                return 'low'
+                return 'low'       # 轻微CSP问题
+        
+        # 对于其他头部，根据惩罚严重程度调整
+        if penalty_score >= 10:
+            return 'high'
+        elif penalty_score >= 6:
+            return 'medium'
+        else:
+            return 'low'
     
     def _validate_header_value(self, header_key: str, header_value: str, header_config: Dict) -> Dict[str, Any]:
         """验证响应头值"""

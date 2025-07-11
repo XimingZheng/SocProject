@@ -1,4 +1,4 @@
-// 改进的 background.js - 修复 Header 检测问题
+// 改进的 background.js - 修复图标颜色逻辑，基于分数而非风险等级
 
 import HeaderAnalyzer from './headerAnalyzer.js';
 import ScannerManager from './scannerManager.js';
@@ -25,6 +25,23 @@ scannerManager.register('headers', new HeaderAnalyzer());
 // 标签页安全状态存储
 const tabSecurityStates = new Map();
 const backendTasks = new Map();
+
+// 🔥 统一的分数颜色阈值 - 与弹窗和评分保持一致
+const SCORE_THRESHOLDS = {
+    HIGH_RISK_SCORE: 45,    // 分数低于45为高风险(红色)
+    MEDIUM_RISK_SCORE: 75   // 分数低于75为中风险(橙色)，≥75为低风险(绿色)
+};
+
+// 🔥 新方法：基于分数获取图标颜色类型
+function getIconTypeByScore(score) {
+    if (score < SCORE_THRESHOLDS.HIGH_RISK_SCORE) {
+        return 'high';      // 红色图标
+    } else if (score < SCORE_THRESHOLDS.MEDIUM_RISK_SCORE) {
+        return 'medium';    // 橙色图标
+    } else {
+        return 'low';       // 绿色图标
+    }
+}
 
 // 改进的响应头监听器
 chrome.webRequest.onHeadersReceived.addListener(
@@ -91,15 +108,17 @@ async function performSecurityScan(tabId, url, headers, rawHeaders) {
             timestamp: Date.now(),
             scanResult: scanResult,
             headers: headers,
-            rawHeaders: rawHeaders, // 保存原始头部用于调试
+            rawHeaders: rawHeaders,
             scanMode: currentScanMode
         });
 
-        console.log('[HeaderSense] 扫描完成:', tabId, scanResult.riskLevel);
-        updateIcon(tabId, scanResult.riskLevel);
+        console.log('[HeaderSense] 扫描完成:', tabId, '分数:', scanResult.score, '风险等级:', scanResult.riskLevel);
+        
+        // 🔥 关键修复：使用基于分数的图标更新
+        updateIconByScore(tabId, scanResult.score || 0);
 
-        // 通知content script
-        if (scanResult.riskLevel === 'high') {
+        // 🔥 关键修复：只有真正的高风险才显示警告
+        if (shouldShowWarning(scanResult)) {
             chrome.tabs.sendMessage(tabId, {
                 action: 'securityScanResult',
                 result: scanResult
@@ -127,8 +146,39 @@ async function performSecurityScan(tabId, url, headers, rawHeaders) {
             headers: headers
         });
         
-        updateIcon(tabId, 'unknown');
+        updateIconByScore(tabId, 0); // 失败时使用0分，显示红色图标
     }
+}
+
+/**
+ * 🔥 新方法：判断是否应该显示警告
+ */
+function shouldShowWarning(scanResult) {
+    const score = scanResult.score || 0;
+    const riskLevel = scanResult.riskLevel;
+    
+    // 检查是否有CSP完全缺失或严重配置错误
+    const hasCSPMissing = scanResult.issues && scanResult.issues.some(issue => 
+        issue.type === 'missing' && issue.header === 'Content-Security-Policy'
+    );
+    
+    const hasCriticalCSP = scanResult.issues && scanResult.issues.some(issue => 
+        issue.severity === 'critical' && issue.header === 'Content-Security-Policy'
+    );
+    
+    // 🔥 关键：只有真正的高风险才显示红色警告
+    const shouldShow = score < SCORE_THRESHOLDS.HIGH_RISK_SCORE || hasCSPMissing || hasCriticalCSP;
+    
+    console.log('[HeaderSense] 警告判断:', {
+        score,
+        riskLevel,
+        hasCSPMissing,
+        hasCriticalCSP,
+        shouldShow,
+        threshold: SCORE_THRESHOLDS.HIGH_RISK_SCORE
+    });
+    
+    return shouldShow;
 }
 
 /**
@@ -181,7 +231,6 @@ function extractMetaCSP() {
  * 改进的本地扫描
  */
 async function performLocalScan(headers) {
-    // 添加调试日志
     console.log('[HeaderSense] 执行本地扫描，头部:', Object.keys(headers));
     
     const result = await scannerManager.scan('headers', headers);
@@ -307,10 +356,20 @@ async function performQuickBackendScan(url, headers) {
  * 合并扫描结果
  */
 function mergeScanResults(localResult, backendResult) {
-    const riskLevels = ['low', 'medium', 'high'];
-    const localRiskIndex = riskLevels.indexOf(localResult.riskLevel);
-    const backendRiskIndex = riskLevels.indexOf(backendResult.riskLevel);
-    const finalRiskLevel = riskLevels[Math.max(localRiskIndex, backendRiskIndex)];
+    // 🔥 关键：使用分数而非issue数量决定风险等级
+    const localScore = localResult.score || 0;
+    const backendScore = backendResult.score || 0;
+    const finalScore = Math.min(localScore, backendScore);
+    
+    // 基于最终分数确定风险等级
+    let finalRiskLevel;
+    if (finalScore < SCORE_THRESHOLDS.HIGH_RISK_SCORE) {
+        finalRiskLevel = 'high';
+    } else if (finalScore < SCORE_THRESHOLDS.MEDIUM_RISK_SCORE) {
+        finalRiskLevel = 'medium';
+    } else {
+        finalRiskLevel = 'low';
+    }
 
     const allIssues = [...(localResult.issues || [])];
     
@@ -335,7 +394,7 @@ function mergeScanResults(localResult, backendResult) {
 
     return {
         riskLevel: finalRiskLevel,
-        score: Math.min(localResult.score, backendResult.score),
+        score: finalScore,
         issues: allIssues,
         summary: `本地发现 ${localResult.issues?.length || 0} 个问题，后端发现 ${backendResult.issues?.length || 0} 个问题`,
         timestamp: Date.now(),
@@ -344,7 +403,9 @@ function mergeScanResults(localResult, backendResult) {
         backendResult: backendResult,
         debug: {
             ...localResult.debug,
-            backendCSP: backendResult.issues?.some(i => i.vulnerability_type?.includes('CSP'))
+            backendCSP: backendResult.issues?.some(i => i.vulnerability_type?.includes('CSP')),
+            scoreComparison: { localScore, backendScore, finalScore },
+            riskLevelReason: `Based on final score ${finalScore}`
         }
     };
 }
@@ -437,7 +498,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const tabId = sender.tab.id;
         const state = tabSecurityStates.get(tabId);
 
-        if (state && state.scanResult.riskLevel === 'high') {
+        if (state && shouldShowWarning(state.scanResult)) {
             chrome.tabs.sendMessage(tabId, {
                 action: 'securityScanResult',
                 result: state.scanResult
@@ -531,7 +592,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (changeInfo.status === 'loading') {
         if (tabSecurityStates.has(tabId)) {
             tabSecurityStates.delete(tabId);
-            updateIcon(tabId, 'unknown');
+            updateIconByScore(tabId, 0); // 加载时重置为未知状态
         }
     }
 });
@@ -540,7 +601,18 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     tabSecurityStates.delete(tabId);
 });
 
-function updateIcon(tabId, riskLevel) {
+// 🔥 关键修复：基于分数更新图标的新方法
+function updateIconByScore(tabId, score) {
+    const iconType = getIconTypeByScore(score);
+    
+    console.log('[HeaderSense] 🎨 更新图标:', {
+        tabId,
+        score,
+        iconType,
+        threshold_high: SCORE_THRESHOLDS.HIGH_RISK_SCORE,
+        threshold_medium: SCORE_THRESHOLDS.MEDIUM_RISK_SCORE
+    });
+    
     const iconPaths = {
         high: {
             16: '../icons/icon16-red.png',
@@ -564,22 +636,39 @@ function updateIcon(tabId, riskLevel) {
         }
     };
 
-    const path = iconPaths[riskLevel] || iconPaths.unknown;
+    const path = iconPaths[iconType] || iconPaths.unknown;
 
     chrome.action.setIcon({ 
         path: path,
         tabId: tabId 
     });
     
+    // 🔥 修复：徽章文字和颜色也基于分数
     chrome.action.setBadgeText({
-        text: riskLevel === 'high' ? '!' : '',
+        text: iconType === 'high' ? '!' : '',
         tabId: tabId
     });
     
     chrome.action.setBadgeBackgroundColor({
-        color: riskLevel === 'high' ? '#FF0000' : '#555555',
+        color: iconType === 'high' ? '#FF0000' : iconType === 'medium' ? '#FF9800' : '#4CAF50',
         tabId: tabId
     });
+}
+
+// 🔥 保留旧方法作为兼容，但内部使用新的基于分数的逻辑
+function updateIcon(tabId, riskLevel) {
+    console.warn('[HeaderSense] ⚠️ 使用了旧的updateIcon方法，建议使用updateIconByScore');
+    
+    // 为了兼容性，将riskLevel映射到默认分数
+    const defaultScores = {
+        'high': 30,      // 低于45的分数
+        'medium': 60,    // 45-75之间的分数
+        'low': 85,       // 高于75的分数
+        'unknown': 0     // 未知状态
+    };
+    
+    const score = defaultScores[riskLevel] || 0;
+    updateIconByScore(tabId, score);
 }
 
 async function callAI(prompt) {
@@ -611,9 +700,10 @@ async function callAI(prompt) {
     return data.candidates?.[0]?.content?.parts?.[0]?.text || '无结果';
 }
 
-console.log('[HeaderSense] Enhanced Background Script 已加载');
+console.log('[HeaderSense] Enhanced Background Script 已加载 - Score-based Icon System');
 console.log('[HeaderSense] 后端URL:', BACKEND_URL);
 console.log('[HeaderSense] 当前扫描模式:', currentScanMode);
+console.log('[HeaderSense] 分数阈值配置:', SCORE_THRESHOLDS);
 
 checkBackendHealth().then(isHealthy => {
     console.log('[HeaderSense] 后端状态:', isHealthy ? '健康' : '不可用');
