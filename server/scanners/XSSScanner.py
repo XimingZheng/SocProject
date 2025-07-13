@@ -38,10 +38,10 @@ class XSSScanner(BaseScanner):
                             scanner_name=self.name,
                             vulnerability_type='Cross-Site Scripting (XSS)',
                             risk_level='high',
-                            title=f'发现XSS漏洞',
-                            description='页面存在跨站脚本攻击漏洞，可能导致用户数据泄露',
+                            title=f'XSS vulnerability detected',
+                            description='Page contains Cross-Site Scripting vulnerability that may lead to user data leakage',
                             evidence=f'Payload: {payload}',
-                            fix_suggestion='对用户输入进行严格的过滤和编码，使用CSP防护',
+                            fix_suggestion='Implement strict input filtering and encoding, use CSP protection',
                             url=url,
                             timestamp=datetime.now().isoformat(),
                             details={'form_action': form.get('action', ''), 'payload': payload}

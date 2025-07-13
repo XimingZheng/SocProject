@@ -20,10 +20,10 @@ class SSLScanner(BaseScanner):
                 scanner_name=self.name,
                 vulnerability_type='Insecure Protocol',
                 risk_level='high',
-                title='网站未使用HTTPS',
-                description='网站使用HTTP协议，数据传输未加密',
+                title='Website not using HTTPS',
+                description='Website uses HTTP protocol, data transmission is not encrypted',
                 evidence=f'URL scheme: {parsed_url.scheme}',
-                fix_suggestion='启用HTTPS并配置SSL证书',
+                fix_suggestion='Enable HTTPS and configure SSL certificate',
                 url=url,
                 timestamp=datetime.now().isoformat()
             )

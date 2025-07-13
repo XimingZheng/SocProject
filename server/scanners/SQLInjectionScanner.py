@@ -43,10 +43,10 @@ class SQLInjectionScanner(BaseScanner):
                             scanner_name=self.name,
                             vulnerability_type='SQL Injection',
                             risk_level='high',
-                            title='发现SQL注入漏洞',
-                            description='页面存在SQL注入漏洞，可能导致数据库信息泄露',
+                            title='SQL injection vulnerability detected',
+                            description='Page contains SQL injection vulnerability that may lead to database information leakage',
                             evidence=f'Payload: {payload}, Error: {error_msg}',
-                            fix_suggestion='使用参数化查询或预编译语句，对用户输入进行严格验证',
+                            fix_suggestion='Use parameterized queries or prepared statements, implement strict input validation',
                             url=url,
                             timestamp=datetime.now().isoformat(),
                             details={'form_action': form.get('action', ''), 'payload': payload, 'error': error_msg}
